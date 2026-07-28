@@ -1,0 +1,450 @@
+const { User, Office, Attendance, District, AppealAttendance, PostingRequest, Device, sequelize } = require('../models');
+const { Op } = require('sequelize');
+const moment = require('moment');
+
+const holidays = [
+  // 2024
+  '01-01-2024', '02-02-2024', '11-01-2024', '26-01-2024', '20-02-2024', '01-03-2024', '25-03-2024', '29-03-2024',
+  '11-04-2024', '21-04-2024', '23-05-2024', '15-06-2024', '17-06-2024', '30-06-2024', '06-07-2024', '17-07-2024',
+  '15-08-2024', '16-09-2024', '02-10-2024', '12-10-2024', '31-10-2024', '15-11-2024', '24-12-2024', '26-12-2024', '31-12-2024',
+  // 2025
+  '01-01-2025', '02-01-2025', '11-01-2025', '26-01-2025', '20-02-2025', '26-02-2025', '07-03-2025', '14-03-2025',
+  '31-03-2025', '10-04-2025', '18-04-2025', '12-05-2025', '07-06-2025', '15-06-2025', '30-06-2025', '06-07-2025',
+  '17-07-2025', '15-08-2025', '16-08-2025', '05-09-2025', '02-10-2025', '20-10-2025', '05-11-2025', '24-12-2025',
+  '25-12-2025', '26-12-2025', '31-12-2025',
+  // 2026
+  '01-01-2026', '02-01-2026', '11-01-2026', '26-01-2026', '20-02-2026', '04-03-2026', '13-03-2026', '21-03-2026',
+  '26-03-2026', '31-03-2026', '03-04-2026', '14-04-2026', '01-05-2026', '27-05-2026', '15-06-2026', '26-06-2026', '30-06-2026',
+  '06-07-2026', '15-08-2026', '26-08-2026', '04-09-2026', '02-10-2026', '20-10-2026', '08-11-2026', '24-11-2026',
+  '24-12-2026', '25-12-2026', '26-12-2026', '31-12-2026'
+];
+
+module.exports = {
+  stats: async (request, reply) => {
+    try {
+      const user = request.user;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // Default stats date range to Today
+      let statsStartDate = today;
+      let statsEndDate = tomorrow;
+      let dateLabel = "Today";
+
+      // Check if today has attendance sign-ins
+      const countToday = await Attendance.count({
+        where: { signin_at: { [Op.gte]: today, [Op.lt]: tomorrow } }
+      });
+
+      if (countToday === 0) {
+        // Fallback to last working date with sign-ins if today has none
+        const latestAttendance = await Attendance.findOne({
+          order: [['signin_at', 'DESC']]
+        });
+
+        if (latestAttendance && latestAttendance.signin_at) {
+          const latestDate = new Date(latestAttendance.signin_at);
+          latestDate.setHours(0, 0, 0, 0);
+
+          statsStartDate = latestDate;
+          const nextDay = new Date(latestDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          statsEndDate = nextDay;
+
+          const isYesterday = latestDate.getTime() === (today.getTime() - 86400000);
+          dateLabel = isYesterday ? "Yesterday" : `${latestDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} (Last Working Day)`;
+        }
+      }
+
+      const isManager = user?.role === 'Manager';
+      const isAdmin = user?.role === 'Admin';
+
+      let data = {};
+
+      if (isAdmin) {
+        const [
+          totalUsers,
+          totalOffices,
+          totalDistricts,
+          periodAttendances,
+          pendingAppeals,
+          pendingPostingRequests,
+          employeesOnLeave
+        ] = await Promise.all([
+          User.count(),
+          Office.count(),
+          District.count(),
+          Attendance.count({ where: { signin_at: { [Op.gte]: statsStartDate, [Op.lt]: statsEndDate } } }),
+          AppealAttendance.count({ where: { status: 'Submitted' } }),
+          PostingRequest.count({ where: { status: 'Submitted' } }),
+          Attendance.count({
+            where: {
+              leaveType: { [Op.ne]: null },
+              start_date: { [Op.lte]: today },
+              end_date: { [Op.gte]: today }
+            },
+            distinct: true,
+            col: 'user_id'
+          })
+        ]);
+
+        // Fetch ALL offices with total assigned staff count
+        const allOffices = await Office.findAll({
+          attributes: [
+            'id',
+            'name',
+            [sequelize.literal('(SELECT COUNT(*) FROM user_offices WHERE user_offices.office_id = Office.id)'), 'total_staff']
+          ],
+          raw: true
+        });
+
+        // Group attendance by office_id AND type (present vs late)
+        const attendanceBreakdown = await Attendance.findAll({
+          attributes: [
+            'office_id',
+            'type',
+            [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+          ],
+          where: {
+            signin_at: { [Op.gte]: statsStartDate, [Op.lt]: statsEndDate },
+            office_id: { [Op.ne]: null }
+          },
+          group: ['office_id', 'type'],
+          raw: true
+        });
+
+        const officeStatsMap = {};
+        let activeOfficesCount = 0;
+
+        attendanceBreakdown.forEach(item => {
+          const offId = item.office_id;
+          if (!officeStatsMap[offId]) {
+            officeStatsMap[offId] = { present: 0, late: 0, total_signin: 0 };
+          }
+          const cnt = parseInt(item.count || 0);
+          officeStatsMap[offId].total_signin += cnt;
+          if (item.type === 'late') {
+            officeStatsMap[offId].late += cnt;
+          } else {
+            officeStatsMap[offId].present += cnt;
+          }
+        });
+
+        Object.keys(officeStatsMap).forEach(offId => {
+          if (officeStatsMap[offId].total_signin > 0) activeOfficesCount++;
+        });
+
+        // Map ALL system offices with Present, Late, Absent metrics
+        const officeAttendanceChart = allOffices.map(off => {
+          const stats = officeStatsMap[off.id] || { present: 0, late: 0, total_signin: 0 };
+          const totalStaff = parseInt(off.total_staff || 0);
+          const absent = Math.max(0, totalStaff - stats.total_signin);
+
+          return {
+            office_id: off.id,
+            office_name: off.name,
+            present: stats.present,
+            late: stats.late,
+            absent: absent,
+            total_staff: totalStaff,
+            count: stats.total_signin
+          };
+        });
+
+        // Sort descending (highest attendance offices first)
+        officeAttendanceChart.sort((a, b) => b.count - a.count);
+
+        data = {
+          role: 'Admin',
+          users: totalUsers,
+          offices: totalOffices,
+          active_offices: activeOfficesCount,
+          districts: totalDistricts,
+          attendances_today: periodAttendances,
+          date_label: dateLabel,
+          pending_appeals: pendingAppeals,
+          pending_posting_requests: pendingPostingRequests,
+          employees_on_leave: employeesOnLeave,
+          office_attendance_chart: officeAttendanceChart
+        };
+      } else if (isManager) {
+        const loggedInUser = await User.findByPk(user.id, {
+          include: [{ model: Office, as: 'Offices' }]
+        });
+        const officeIds = loggedInUser?.Offices?.map(o => o.id) || [];
+        const officeWhere = officeIds.length ? { office_id: { [Op.in]: officeIds } } : {};
+
+        const [
+          periodAttendances,
+          pendingAppeals
+        ] = await Promise.all([
+          Attendance.count({ where: { ...officeWhere, signin_at: { [Op.gte]: statsStartDate, [Op.lt]: statsEndDate } } }),
+          AppealAttendance.count({ where: { ...officeWhere, status: 'Submitted' } })
+        ]);
+
+        // Fetch employees in manager's office
+        let officeUsers = [];
+        if (officeIds.length) {
+          officeUsers = await User.findAll({
+            attributes: ['id', 'full_name', 'designation', 'mobile'],
+            include: [
+              {
+                model: Office,
+                as: 'Offices',
+                required: true,
+                where: { id: { [Op.in]: officeIds } },
+                attributes: ['id', 'name']
+              },
+              {
+                model: Attendance,
+                as: 'Attendances',
+                required: false,
+                where: {
+                  signin_at: { [Op.gte]: statsStartDate, [Op.lt]: statsEndDate }
+                }
+              }
+            ],
+            order: [['full_name', 'ASC']]
+          });
+        }
+
+        let presentCount = 0;
+        let lateCount = 0;
+        let absentCount = 0;
+
+        const todayUserAttendances = officeUsers.map(u => {
+          const uJson = u.toJSON();
+          const att = uJson.Attendances && uJson.Attendances.length ? uJson.Attendances[0] : null;
+          let status = 'Absent';
+          if (att) {
+            if (att.type === 'late') {
+              status = 'Late';
+              lateCount++;
+            } else {
+              status = 'Present';
+              presentCount++;
+            }
+          } else {
+            absentCount++;
+          }
+
+          return {
+            id: uJson.id,
+            full_name: uJson.full_name,
+            designation: uJson.designation || 'Staff',
+            mobile: uJson.mobile,
+            office_name: uJson.Offices && uJson.Offices[0] ? uJson.Offices[0].name : '',
+            signin_at: att ? att.signin_at : null,
+            signout_at: att ? att.signout_at : null,
+            type: att ? att.type : null,
+            status
+          };
+        });
+
+        // Today pie chart breakdown
+        const todayPieChart = [
+          { name: 'Present (On Time)', value: presentCount, itemStyle: { color: '#10b981' } },
+          { name: 'Late Sign-in', value: lateCount, itemStyle: { color: '#f59e0b' } },
+          { name: 'Absent', value: absentCount, itemStyle: { color: '#f43f5e' } }
+        ];
+
+        // Compute weekly attendance per employee starting from Monday of the current ISO week (excluding Weekends & Holidays)
+        const mondayStart = moment(statsStartDate).startOf('isoWeek').toDate();
+
+        // Count working days in this week so far (Monday through current date, excluding weekends and official holidays)
+        let workingDaysCount = 0;
+        const curDate = new Date(mondayStart);
+        while (curDate < statsEndDate) {
+          const dayOfWeek = curDate.getDay();
+          const formattedDate = moment(curDate).format('DD-MM-YYYY');
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+          const isHoliday = holidays.includes(formattedDate);
+
+          if (!isWeekend && !isHoliday) {
+            workingDaysCount++;
+          }
+          curDate.setDate(curDate.getDate() + 1);
+        }
+
+        if (workingDaysCount === 0) workingDaysCount = 1;
+
+        const weeklyEmployeeChartPromises = officeUsers.map(async emp => {
+          const empAttendances = await Attendance.findAll({
+            where: {
+              user_id: emp.id,
+              signin_at: { [Op.gte]: mondayStart, [Op.lt]: statsEndDate }
+            },
+            raw: true
+          });
+
+          let pDays = 0;
+          let lDays = 0;
+
+          empAttendances.forEach(att => {
+            if (att.signin_at) {
+              const attDate = new Date(att.signin_at);
+              const dayOfWeek = attDate.getDay();
+              const formattedDate = moment(attDate).format('DD-MM-YYYY');
+              const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+              const isHoliday = holidays.includes(formattedDate);
+
+              // Only count attendance on official working days
+              if (!isWeekend && !isHoliday) {
+                if (att.type === 'late') lDays++;
+                else pDays++;
+              }
+            }
+          });
+
+          const aDays = Math.max(0, workingDaysCount - (pDays + lDays));
+
+          return {
+            user_id: emp.id,
+            employee_name: emp.full_name,
+            designation: emp.designation || 'Staff',
+            present: pDays,
+            late: lDays,
+            absent: aDays,
+            working_days: workingDaysCount,
+            count: pDays + lDays
+          };
+        });
+
+        const weeklyEmployeeChart = await Promise.all(weeklyEmployeeChartPromises);
+
+        // Fetch recent approval-required appeals for manager's office
+        const recentAppealsRaw = await AppealAttendance.findAll({
+          where: {
+            ...officeWhere,
+            status: 'Submitted'
+          },
+          include: [{
+            model: User,
+            attributes: ['id', 'full_name', 'designation']
+          }],
+          order: [['id', 'DESC']],
+          limit: 5
+        });
+
+        const recentAppeals = recentAppealsRaw.map(app => ({
+          id: app.id,
+          employee_name: app.User?.full_name || `User #${app.user_id}`,
+          designation: app.User?.designation || 'Staff',
+          start_date: app.start_date,
+          end_date: app.end_date,
+          reason: app.reason || 'No reason provided',
+          created_at: app.createdAt
+        }));
+
+        // Fetch employees currently on leave in manager's office
+        const todayStr = moment().format('YYYY-MM-DD');
+
+        const employeesOnLeaveCount = await Attendance.count({
+          where: {
+            ...officeWhere,
+            leaveType: { [Op.not]: null },
+            start_date: { [Op.lte]: todayStr },
+            end_date: { [Op.gte]: todayStr }
+          }
+        });
+
+        // Fetch submitted device change requests for manager's office employees
+        let pendingDevicesRaw = [];
+        let pendingDevicesCount = 0;
+
+        if (officeIds.length) {
+          pendingDevicesRaw = await Device.findAll({
+            where: {
+              status: { [Op.in]: ['Pending', 'Submitted'] }
+            },
+            include: [{
+              model: User,
+              required: true,
+              attributes: ['id', 'full_name', 'designation', 'mobile'],
+              include: [{
+                model: Office,
+                as: 'Offices',
+                required: true,
+                where: { id: { [Op.in]: officeIds } }
+              }]
+            }],
+            order: [['id', 'DESC']],
+            limit: 5
+          });
+
+          pendingDevicesCount = await Device.count({
+            where: {
+              status: { [Op.in]: ['Pending', 'Submitted'] }
+            },
+            include: [{
+              model: User,
+              required: true,
+              include: [{
+                model: Office,
+                as: 'Offices',
+                required: true,
+                where: { id: { [Op.in]: officeIds } }
+              }]
+            }]
+          });
+        }
+
+        const recentDeviceRequests = pendingDevicesRaw.map(dev => ({
+          id: dev.id,
+          device_name: dev.name || 'Mobile Device',
+          device_uid: dev.uid || '—',
+          employee_name: dev.User?.full_name || `User #${dev.user_id}`,
+          designation: dev.User?.designation || 'Staff',
+          created_at: dev.createdAt
+        }));
+
+        data = {
+          role: 'Manager',
+          office_name: loggedInUser?.Offices?.[0]?.name || 'Assigned Office',
+          office_users: officeUsers.length,
+          attendances_today: periodAttendances,
+          date_label: dateLabel,
+          pending_appeals: pendingAppeals,
+          employees_on_leave_count: employeesOnLeaveCount,
+          pending_devices: pendingDevicesCount,
+          today_user_attendances: todayUserAttendances,
+          today_pie_chart: todayPieChart,
+          weekly_employee_chart: weeklyEmployeeChart,
+          recent_appeals: recentAppeals,
+          recent_device_requests: recentDeviceRequests
+        };
+      } else {
+        // Regular User
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        const [
+          myAttendancesThisMonth,
+          todayAttendance,
+          myPendingAppeals,
+          myPendingPostingRequests
+        ] = await Promise.all([
+          Attendance.count({ where: { user_id: user.id, signin_at: { [Op.gte]: firstDayOfMonth } } }),
+          Attendance.findOne({ where: { user_id: user.id, signin_at: { [Op.gte]: statsStartDate, [Op.lt]: statsEndDate } } }),
+          AppealAttendance.count({ where: { user_id: user.id, status: 'Submitted' } }),
+          PostingRequest.count({ where: { status: 'Submitted' } })
+        ]);
+
+        data = {
+          role: 'User',
+          attendances_this_month: myAttendancesThisMonth,
+          today_signin: todayAttendance ? todayAttendance.signin_at : null,
+          date_label: dateLabel,
+          pending_appeals: myPendingAppeals,
+          pending_posting_requests: myPendingPostingRequests
+        };
+      }
+
+      return { status: 'success', data };
+    } catch (error) {
+      console.error('Dashboard stats error:', error);
+      return reply.code(500).send({ status: 'error', message: error.message });
+    }
+  }
+};
