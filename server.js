@@ -65,12 +65,13 @@ if (fs.existsSync(frontendDist)) {
     decorateReply: false
   });
 
-  fastify.setNotFoundHandler(async (req, reply) => {
+  fastify.setNotFoundHandler((req, reply) => {
     if (req.url.startsWith('/api') || req.url.startsWith('/uploads')) {
       reply.code(404).send({ status: 'error', message: 'API Route Not Found' });
       return;
     }
-    return reply.sendFile('index.html');
+    const stream = fs.createReadStream(path.join(frontendDist, 'index.html'));
+    reply.type('text/html').send(stream);
   });
 }
 

@@ -9,9 +9,6 @@ frontend/.env
 .env.local
 .env.*.local
 
-# Production build outputs
-dist/
-frontend/dist/
 
 # User uploads & generated report files
 uploads/
