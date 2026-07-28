@@ -129,7 +129,7 @@
 
       <!-- Footer Note -->
       <p class="text-center text-xs text-slate-500 font-medium mt-6">
-        Lokai HR Management System &copy; {{ new Date().getFullYear() }}
+        Kai Attendance Management System &copy; {{ new Date().getFullYear() }}
       </p>
     </div>
 

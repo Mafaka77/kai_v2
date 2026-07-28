@@ -267,22 +267,13 @@ const parseDate = (dateString) => {
   if (!dateString) return null
   if (dateString instanceof Date) return dateString
   
-  if (typeof dateString === 'string') {
-    const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
-    if (match) {
-      const [_, year, month, day, hours, minutes, seconds] = match;
-      return new Date(
-        parseInt(year),
-        parseInt(month) - 1,
-        parseInt(day),
-        parseInt(hours),
-        parseInt(minutes),
-        parseInt(seconds)
-      );
-    }
+  let date = new Date(dateString)
+  
+  if (isNaN(date.getTime()) && typeof dateString === 'string') {
+    // Fallback for Safari if string is "YYYY-MM-DD HH:mm:ss"
+    date = new Date(dateString.replace(' ', 'T'))
   }
   
-  const date = new Date(dateString)
   return isNaN(date.getTime()) ? null : date
 }
 

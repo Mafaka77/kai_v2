@@ -10,35 +10,24 @@ module.exports = {
       const limitNum = Math.max(1, parseInt(limit));
       const offset = (pageNum - 1) * limitNum;
 
-      const isAdmin = request.user.role === 'Admin';
       let officesList = [];
       let targetOfficeIds = [];
 
-      if (isAdmin) {
-        officesList = await Office.findAll({ attributes: ['id', 'name'], order: [['name', 'ASC']] });
-        const allIds = officesList.map(o => o.id);
-        if (office_id) {
-          const idVal = parseInt(office_id);
-          targetOfficeIds = allIds.includes(idVal) ? [idVal] : allIds;
+      const loggedInUser = await User.findByPk(request.user.id, {
+        include: [{ model: Office, as: 'Offices' }]
+      });
+      officesList = loggedInUser?.Offices || [];
+      const managedIds = officesList.map(o => o.id);
+      
+      if (office_id) {
+        const idVal = parseInt(office_id);
+        if (managedIds.includes(idVal)) {
+          targetOfficeIds = [idVal];
         } else {
-          targetOfficeIds = allIds;
+          return reply.code(403).send({ status: 'error', message: 'Unauthorized access to this office' });
         }
       } else {
-        const loggedInUser = await User.findByPk(request.user.id, {
-          include: [{ model: Office, as: 'Offices' }]
-        });
-        officesList = loggedInUser?.Offices || [];
-        const managedIds = officesList.map(o => o.id);
-        if (office_id) {
-          const idVal = parseInt(office_id);
-          if (managedIds.includes(idVal)) {
-            targetOfficeIds = [idVal];
-          } else {
-            return reply.code(403).send({ status: 'error', message: 'Unauthorized access to this office' });
-          }
-        } else {
-          targetOfficeIds = managedIds;
-        }
+        targetOfficeIds = managedIds;
       }
 
       // Default to today if date is not specified
