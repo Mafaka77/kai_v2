@@ -4,7 +4,7 @@
       <div>
         <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
           <span>📊</span>
-          <span>Attendance Ratio ({{ dateLabel }})</span>
+          <span>Attendance Ratio (Today)</span>
         </h3>
         <p class="text-xs text-slate-400 mt-0.5">
           Present, Late, and Absent breakdown
