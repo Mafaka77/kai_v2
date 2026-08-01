@@ -24,12 +24,12 @@
           <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         </div>
         <div>
-          <div class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{{ stats.date_label ? `${stats.date_label} Sign-ins` : 'Today Sign-ins' }}</div>
+          <div class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Today's Sign-ins</div>
           <div class="text-3xl font-black text-slate-800">
             <span v-if="loading" class="animate-pulse bg-slate-200 h-8 w-16 block rounded"></span>
             <span v-else>{{ stats.attendances_today || 0 }}</span>
           </div>
-          <p class="text-[10px] text-slate-400 font-medium mt-1">{{ stats.date_label || "Today's office attendance" }}</p>
+          <p class="text-[10px] text-slate-400 font-medium mt-1">Today's office attendance</p>
         </div>
       </div>
 
