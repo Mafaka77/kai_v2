@@ -249,15 +249,18 @@ const isDatePast = (dateStr) => {
   return dateStr < getLocalDateString()
 }
 
-const parseDate = (ds) => {
-  if (!ds) return null
-  if (ds instanceof Date) return ds
-  if (typeof ds === 'string') {
-    const m = ds.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/)
-    if (m) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6])
+const parseDate = (dateString) => {
+  if (!dateString) return null
+  if (dateString instanceof Date) return dateString
+  
+  let date = new Date(dateString)
+  
+  if (isNaN(date.getTime()) && typeof dateString === 'string') {
+    // Fallback for Safari if string is "YYYY-MM-DD HH:mm:ss"
+    date = new Date(dateString.replace(' ', 'T'))
   }
-  const d = new Date(ds)
-  return isNaN(d.getTime()) ? null : d
+  
+  return isNaN(date.getTime()) ? null : date
 }
 
 const formatTime = (ds) => {

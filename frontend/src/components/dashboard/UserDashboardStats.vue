@@ -9,9 +9,9 @@
         <div class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Today Punch</div>
         <div class="text-lg font-black text-slate-800">
           <span v-if="loading" class="animate-pulse bg-slate-200 h-6 w-16 block rounded"></span>
-          <span v-else-if="stats.today_signin" class="text-emerald-600 font-bold text-base flex items-center gap-1">
+          <span v-else-if="stats?.today_signin" class="text-emerald-600 font-bold text-base flex items-center gap-1">
             <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-            {{ formatTime(stats.today_signin) }}
+            {{ formatTime(stats?.today_signin) }}
           </span>
           <span v-else class="text-slate-400 font-medium text-sm">Not Punched</span>
         </div>
@@ -27,7 +27,7 @@
         <div class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Monthly Days</div>
         <div class="text-3xl font-black text-slate-800">
           <span v-if="loading" class="animate-pulse bg-slate-200 h-8 w-16 block rounded"></span>
-          <span v-else>{{ stats.attendances_this_month || 0 }}</span>
+          <span v-else>{{ stats?.attendances_this_month || 0 }}</span>
         </div>
         <p class="text-[10px] text-slate-400 font-medium mt-1">Days present this month</p>
       </div>
@@ -42,7 +42,7 @@
         <div class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">My Appeals</div>
         <div class="text-3xl font-black text-slate-800">
           <span v-if="loading" class="animate-pulse bg-slate-200 h-8 w-16 block rounded"></span>
-          <span v-else>{{ stats.pending_appeals || 0 }}</span>
+          <span v-else>{{ stats?.pending_appeals || 0 }}</span>
         </div>
         <router-link to="/attendance-appeal" class="text-[10px] text-amber-600 hover:underline font-semibold mt-1 inline-block">View Appeals &rarr;</router-link>
       </div>
@@ -57,22 +57,35 @@
         <div class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">My Transfers</div>
         <div class="text-3xl font-black text-slate-800">
           <span v-if="loading" class="animate-pulse bg-slate-200 h-8 w-16 block rounded"></span>
-          <span v-else>{{ stats.pending_posting_requests || 0 }}</span>
+          <span v-else>{{ stats?.pending_posting_requests || 0 }}</span>
         </div>
         <router-link to="/change-office" class="text-[10px] text-rose-600 hover:underline font-semibold mt-1 inline-block">View Requests &rarr;</router-link>
       </div>
     </div>
   </div>
+  
+  <UserAttendanceCalendar :attendances="stats?.monthly_attendances || []" @change-month="handleMonthChange" />
 </template>
 
 <script setup>
-defineProps({
-  stats: { type: Object, default: () => ({}) },
-  loading: { type: Boolean, default: false }
-})
+import { onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useUserDashboardStore } from '../../stores/userDashboard'
+import UserAttendanceCalendar from './UserAttendanceCalendar.vue'
+
+const store = useUserDashboardStore()
+const { stats, loading } = storeToRefs(store)
 
 const formatTime = (dt) => {
   if (!dt) return ''
   return new Date(dt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
 }
+
+const handleMonthChange = ({ month, year }) => {
+  store.fetchStats(month, year)
+}
+
+onMounted(() => {
+  store.fetchStats()
+})
 </script>

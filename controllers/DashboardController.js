@@ -417,16 +417,37 @@ module.exports = {
         };
       } else {
         // Regular User
-        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const reqMonth = request.query.month;
+        const reqYear = request.query.year;
+        
+        let firstDayOfMonth, lastDayOfMonth;
+        if (reqMonth && reqYear) {
+          firstDayOfMonth = new Date(parseInt(reqYear), parseInt(reqMonth) - 1, 1);
+          lastDayOfMonth = new Date(parseInt(reqYear), parseInt(reqMonth), 1);
+        } else {
+          firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+          lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        }
 
         const [
           myAttendancesThisMonth,
+          monthlyAttendances,
           todayAttendance,
           myPendingAppeals,
           myPendingPostingRequests
         ] = await Promise.all([
-          Attendance.count({ where: { user_id: user.id, signin_at: { [Op.gte]: firstDayOfMonth } } }),
-          Attendance.findOne({ where: { user_id: user.id, signin_at: { [Op.gte]: statsStartDate, [Op.lt]: statsEndDate } } }),
+          Attendance.count({ where: { user_id: user.id, signin_at: { [Op.gte]: firstDayOfMonth, [Op.lt]: lastDayOfMonth } } }),
+          Attendance.findAll({ 
+            where: { user_id: user.id, signin_at: { [Op.gte]: firstDayOfMonth, [Op.lt]: lastDayOfMonth } },
+            attributes: ['id', 'signin_at', 'signout_at', 'type', 'leaveType']
+          }),
+          Attendance.findOne({ 
+            where: { 
+              user_id: user.id, 
+              signin_at: { [Op.gte]: moment().startOf('day').toDate(), [Op.lte]: moment().endOf('day').toDate() } 
+            },
+            order: [['signin_at', 'DESC']]
+          }),
           AppealAttendance.count({ where: { user_id: user.id, status: 'Submitted' } }),
           PostingRequest.count({ where: { status: 'Submitted' } })
         ]);
@@ -434,6 +455,7 @@ module.exports = {
         data = {
           role: 'User',
           attendances_this_month: myAttendancesThisMonth,
+          monthly_attendances: monthlyAttendances,
           today_signin: todayAttendance ? todayAttendance.signin_at : null,
           date_label: dateLabel,
           pending_appeals: myPendingAppeals,

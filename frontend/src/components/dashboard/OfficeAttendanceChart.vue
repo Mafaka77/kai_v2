@@ -181,6 +181,17 @@ const initChart = () => {
         top: 0,
         textStyle: { color: '#475569', fontSize: 11, fontWeight: 600 }
       },
+      toolbox: {
+        feature: {
+          saveAsImage: {
+            title: 'Download PNG',
+            type: 'png',
+            pixelRatio: 2
+          }
+        },
+        right: 15,
+        top: -5
+      },
       grid: {
         top: 40,
         right: 25,
@@ -305,6 +316,17 @@ const initChart = () => {
         data: ['Present Days', 'Late Days', 'Absent Days'],
         top: 0,
         textStyle: { color: '#475569', fontSize: 11, fontWeight: 600 }
+      },
+      toolbox: {
+        feature: {
+          saveAsImage: {
+            title: 'Download PNG',
+            type: 'png',
+            pixelRatio: 2
+          }
+        },
+        right: 15,
+        top: -5
       },
       grid: {
         top: 40,

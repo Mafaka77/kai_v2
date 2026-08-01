@@ -281,10 +281,18 @@
               <h4 class="text-lg font-bold text-slate-900">{{ selectedUserDetail.full_name }}</h4>
               <p class="text-xs font-semibold text-slate-400 mt-0.5">{{ selectedUserDetail.designation || 'Staff Member' }}</p>
               
-              <div class="flex items-center gap-2 mt-3">
+              <div class="flex items-center gap-2 mt-3 flex-wrap justify-center">
                 <span class="inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-700 font-bold text-xs rounded-full">
                   {{ getUserRole(selectedUserDetail) }}
                 </span>
+
+                <router-link 
+                  :to="'/accounts/view/' + selectedUserDetail.id"
+                  class="px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs rounded-full cursor-pointer shadow-sm transition-all flex items-center gap-1"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                  View Attendance
+                </router-link>
 
                 <button 
                   v-if="selectedUserDetail.deleted_at"

@@ -9,6 +9,7 @@ import ConfigurationIndex from '../views/Configuration/Index.vue'
 import AppealIndex from '../views/Appeal/Index.vue'
 import LateListIndex from '../views/LateList/Index.vue'
 import AccountIndex from '../views/Account/Index.vue'
+import AccountView from '../views/Account/View.vue'
 import ReportIndex from '../views/Report/Index.vue'
 import PostingRequestIndex from '../views/PostingRequest/Index.vue'
 import LeaveIndex from '../views/Leave/Index.vue'
@@ -75,6 +76,12 @@ const routes = [
     path: '/accounts',
     name: 'Accounts',
     component: AccountIndex,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/accounts/view/:id',
+    name: 'AccountView',
+    component: AccountView,
     meta: { requiresAuth: true }
   },
   {

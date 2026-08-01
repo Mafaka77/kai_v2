@@ -15,14 +15,21 @@
     
     <div class="flex items-center gap-4">
       <div class="hidden sm:block text-right leading-tight">
-        <div class="text-slate-800 font-semibold text-sm">Administrator</div>
-        <div class="text-slate-500 text-xs font-medium">Head Office</div>
+        <div class="text-slate-800 font-semibold text-sm">{{ authStore.user?.full_name || 'User' }}</div>
       </div>
       <div class="relative cursor-pointer hover:ring-2 hover:ring-blue-100 rounded-full transition-all">
         <div class="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold shadow-sm">
-          A
+          {{ authStore.user?.full_name ? authStore.user.full_name.charAt(0).toUpperCase() : 'U' }}
         </div>
       </div>
     </div>
   </header>
 </template>
+
+<script setup>
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
+
+defineEmits(['toggle-sidebar'])
+</script>

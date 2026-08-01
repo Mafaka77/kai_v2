@@ -231,6 +231,48 @@ module.exports = {
     }
   },
 
+  // Returns weekly attendance (Mon-Sun) for a specific user
+  userWeek: async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const weekStart = moment().startOf('isoWeek').toDate();
+      const weekEnd = moment().endOf('isoWeek').toDate();
+
+      const rows = await Attendance.findAll({
+        where: {
+          user_id: id,
+          signin_at: { [Op.between]: [weekStart, weekEnd] }
+        },
+        include: [
+          { model: Office, attributes: ['id', 'name'] }
+        ],
+        order: [['signin_at', 'ASC']]
+      });
+
+      // Build a map of day -> record for the current ISO week (Mon-Sun)
+      const weekDays = [];
+      for (let i = 0; i < 7; i++) {
+        const day = moment().startOf('isoWeek').add(i, 'days');
+        const record = rows.find(r => {
+          const d = moment(r.signin_at);
+          return d.isSame(day, 'day');
+        }) || null;
+        weekDays.push({
+          date: day.format('YYYY-MM-DD'),
+          dayLabel: day.format('ddd'),
+          dayNumber: day.format('D'),
+          isToday: day.isSame(moment(), 'day'),
+          isWeekend: day.day() === 0 || day.day() === 6,
+          record
+        });
+      }
+
+      return { status: 'success', data: weekDays };
+    } catch (error) {
+      return reply.code(500).send({ status: 'error', message: error.message });
+    }
+  },
+
   // Returns paginated attendance history for the logged-in user with date range
   myHistory: async (request, reply) => {
     try {
@@ -258,6 +300,54 @@ module.exports = {
         offset,
         distinct: true,
         order: [['signin_at', 'DESC']]
+      });
+
+      const totalPages = Math.ceil(count / limitNum);
+
+      return {
+        status: 'success',
+        data: rows,
+        pagination: {
+          total: count,
+          page: pageNum,
+          limit: limitNum,
+          totalPages,
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1
+        }
+      };
+    } catch (error) {
+      return reply.code(500).send({ status: 'error', message: error.message });
+    }
+  },
+
+  // Returns paginated attendance history for a specific user
+  userHistory: async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { from, to, page = 1, limit = 100 } = request.query || {};
+      const pageNum = Math.max(1, parseInt(page));
+      const limitNum = Math.max(1, parseInt(limit));
+      const offset = (pageNum - 1) * limitNum;
+
+      const where = { user_id: id };
+
+      if (from && to) {
+        where.signin_at = {
+          [Op.gte]: moment(from).startOf('day').toDate(),
+          [Op.lte]: moment(to).endOf('day').toDate()
+        };
+      } else if (from) {
+        where.signin_at = { [Op.gte]: moment(from).startOf('day').toDate() };
+      }
+
+      const { count, rows } = await Attendance.findAndCountAll({
+        where,
+        include: [{ model: Office, attributes: ['id', 'name'] }],
+        limit: limitNum,
+        offset,
+        distinct: true,
+        order: [['signin_at', 'ASC']]
       });
 
       const totalPages = Math.ceil(count / limitNum);

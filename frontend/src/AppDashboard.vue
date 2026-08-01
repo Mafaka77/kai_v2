@@ -6,7 +6,7 @@
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 class="text-2xl font-black text-slate-900 tracking-tight">
-            Welcome back, {{ authStore.user?.full_name || 'User' }} 👋
+            Welcome back, {{ authStore.user?.full_name || 'User' }} 
           </h1>
           <p class="text-slate-500 text-xs mt-1">
             <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-700 font-bold rounded-md uppercase text-[10px] mr-1">
@@ -31,7 +31,7 @@
       <!-- Role-Based Stats Cards -->
       <AdminDashboardStats v-if="userRole === 'Admin'" :stats="stats" :loading="loading" />
       <ManagerDashboardStats v-else-if="userRole === 'Manager'" :stats="stats" :loading="loading" />
-      <UserDashboardStats v-else :stats="stats" :loading="loading" />
+      <UserDashboardStats v-else />
 
       <!-- ADMIN DASHBOARD CHARTS -->
       <OfficeAttendanceChart
@@ -90,12 +90,14 @@ import MainLayout from './layouts/MainLayout.vue'
 import AdminDashboardStats from './components/dashboard/AdminDashboardStats.vue'
 import ManagerDashboardStats from './components/dashboard/ManagerDashboardStats.vue'
 import UserDashboardStats from './components/dashboard/UserDashboardStats.vue'
-import OfficeAttendanceChart from './components/dashboard/OfficeAttendanceChart.vue'
 import ManagerTodayPieChart from './components/dashboard/ManagerTodayPieChart.vue'
+import OfficeAttendanceChart from './components/dashboard/OfficeAttendanceChart.vue'
 import { useAuthStore } from './stores/auth'
 import api from './plugins/axios'
+import { useUserDashboardStore } from './stores/userDashboard'
 
 const authStore = useAuthStore()
+const userDashboardStore = useUserDashboardStore()
 const loading = ref(true)
 const stats = ref({})
 
@@ -104,9 +106,13 @@ const userRole = computed(() => authStore.role || 'User')
 const fetchStats = async () => {
   loading.value = true
   try {
-    const response = await api.get('/dashboard/stats')
-    if (response.data && response.data.status === 'success') {
-      stats.value = response.data.data
+    if (userRole.value === 'User') {
+      await userDashboardStore.fetchStats()
+    } else {
+      const response = await api.get('/dashboard/stats')
+      if (response.data && response.data.status === 'success') {
+        stats.value = response.data.data
+      }
     }
   } catch (error) {
     console.error('Failed to fetch dashboard stats', error)
