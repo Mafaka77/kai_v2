@@ -76,7 +76,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p class="text-slate-900 font-bold text-lg">No Excessive Tardiness Flagged</p>
+    
           <p class="text-slate-400 text-sm mt-1 max-w-sm mx-auto">
             No employees have accumulated 3 or more late check-ins for the selected office in the current week.
           </p>

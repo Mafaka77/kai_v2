@@ -133,17 +133,41 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import { useAuthStore } from '../stores/auth'
 import { useDialogStore } from '../stores/dialog'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const dialog = useDialogStore()
 
-const isSidebarOpen = ref(true)
+// Closed on screen widths less than 1024px (lg breakpoint)
+const checkIsMobile = () => window.innerWidth < 1024
+
+const isSidebarOpen = ref(!checkIsMobile())
+
+// Watch for route changes to close the sidebar on mobile devices
+watch(() => route.path, () => {
+  if (checkIsMobile()) {
+    isSidebarOpen.value = false
+  }
+})
+
+// Update sidebar state on window resize
+const handleResize = () => {
+  isSidebarOpen.value = !checkIsMobile()
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
 
 const handleLogout = async () => {
   const ok = await dialog.confirm({
