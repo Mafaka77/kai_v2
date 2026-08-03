@@ -243,6 +243,16 @@ module.exports = {
           };
         });
 
+        // Sort employees: Earliest sign-in first, then employees without sign-ins
+        todayUserAttendances.sort((a, b) => {
+          if (a.signin_at && b.signin_at) {
+            return new Date(a.signin_at) - new Date(b.signin_at);
+          }
+          if (a.signin_at && !b.signin_at) return -1;
+          if (!a.signin_at && b.signin_at) return 1;
+          return (a.full_name || '').localeCompare(b.full_name || '');
+        });
+
         // Today pie chart breakdown
         const todayPieChart = [
           { name: 'Present (On Time)', value: presentCount, itemStyle: { color: '#10b981' } },

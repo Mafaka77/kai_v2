@@ -55,6 +55,17 @@
           >
             With Sign-ins ({{ activeOfficesCount }})
           </button>
+          <button 
+            @click="filterMode = 'inactive'"
+            :class="[
+              'px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer',
+              filterMode === 'inactive' 
+                ? 'bg-white text-indigo-600 shadow-xs' 
+                : 'text-slate-500 hover:text-slate-800'
+            ]"
+          >
+            No Sign-ins ({{ inactiveOfficesCount }})
+          </button>
         </div>
 
         <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg shrink-0">
@@ -90,11 +101,15 @@ const props = defineProps({
 
 const chartRef = ref(null)
 let chartInstance = null
-const filterMode = ref('all') // 'all' | 'active'
+const filterMode = ref('all') // 'all' | 'active' | 'inactive'
 const searchQuery = ref('')
 
 const activeOfficesCount = computed(() => {
   return props.chartData.filter(item => item.count > 0).length
+})
+
+const inactiveOfficesCount = computed(() => {
+  return props.chartData.filter(item => !item.count || item.count === 0).length
 })
 
 const filteredData = computed(() => {
@@ -103,8 +118,9 @@ const filteredData = computed(() => {
   let list = props.chartData
 
   if (filterMode.value === 'active') {
-    const active = list.filter(item => item.count > 0)
-    list = active.length ? active : list
+    list = list.filter(item => item.count > 0)
+  } else if (filterMode.value === 'inactive') {
+    list = list.filter(item => !item.count || item.count === 0)
   }
 
   if (searchQuery.value.trim()) {

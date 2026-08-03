@@ -148,12 +148,19 @@ module.exports = {
         filteredList = combinedList.filter(item => item.type === status_filter);
       }
 
-      // Sort: Present & Late first, then Leave, then Absent (and by name within status)
-      const statusPriority = { present: 1, late: 2, leave: 3, absent: 4 };
+      // Sort: Earliest sign-in first, then employees on leave, then absent employees
       filteredList.sort((a, b) => {
-        const pA = statusPriority[a.type] || 5;
-        const pB = statusPriority[b.type] || 5;
+        if (a.signin_at && b.signin_at) {
+          return new Date(a.signin_at) - new Date(b.signin_at);
+        }
+        if (a.signin_at && !b.signin_at) return -1;
+        if (!a.signin_at && b.signin_at) return 1;
+
+        const statusPriority = { leave: 1, absent: 2 };
+        const pA = statusPriority[a.type] || 3;
+        const pB = statusPriority[b.type] || 3;
         if (pA !== pB) return pA - pB;
+
         const nameA = a.User?.full_name || '';
         const nameB = b.User?.full_name || '';
         return nameA.localeCompare(nameB);

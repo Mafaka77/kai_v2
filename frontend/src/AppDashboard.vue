@@ -69,6 +69,8 @@
           :users="stats.today_user_attendances || []"
           :office-name="stats.office_name || ''"
           :date-label="stats.date_label || 'Today'"
+          :loading="loading"
+          @refresh="fetchStats"
         />
       </template>
 

@@ -23,7 +23,7 @@ const holidays = [
 module.exports = {
   index: async (request, reply) => {
     try {
-      const { type, search, page = 1, limit = 15 } = request.query;
+      const { type, search, status, page = 1, limit = 15 } = request.query;
       const pageNum = Math.max(1, parseInt(page));
       const limitNum = Math.max(1, parseInt(limit));
       const offset = (pageNum - 1) * limitNum;
@@ -40,8 +40,13 @@ module.exports = {
         userWhere.full_name = { [Op.like]: `%${search}%` };
       }
       
+      let appealWhere = { type };
+      if (status && status !== 'All') {
+        appealWhere.status = status;
+      }
+      
       const { count, rows } = await AppealAttendance.findAndCountAll({
-        where: { type },
+        where: appealWhere,
         include: [
           {
             model: User,
@@ -58,17 +63,47 @@ module.exports = {
           },
           { model: Office }
         ],
-        order: [['id', 'DESC']],
+        order: [
+          [sequelize.literal(`CASE WHEN status = 'Submitted' THEN 0 ELSE 1 END`), 'ASC'],
+          ['id', 'DESC']
+        ],
         limit: limitNum,
         offset,
         distinct: true
       });
       
       const totalPages = Math.ceil(count / limitNum);
+
+      const getCommonInclude = () => [
+        {
+          model: User,
+          required: true,
+          where: userWhere,
+          include: [
+            {
+              model: Office,
+              as: 'Offices',
+              required: true,
+              where: { id: managedOfficeIds }
+            }
+          ]
+        }
+      ];
+
+      const pendingCountP = AppealAttendance.count({ where: { type, status: 'Submitted' }, include: getCommonInclude(), distinct: true, col: 'id' });
+      const approvedCountP = AppealAttendance.count({ where: { type, status: 'Approved' }, include: getCommonInclude(), distinct: true, col: 'id' });
+      const rejectedCountP = AppealAttendance.count({ where: { type, status: 'Rejected' }, include: getCommonInclude(), distinct: true, col: 'id' });
+      
+      const [pendingCount, approvedCount, rejectedCount] = await Promise.all([pendingCountP, approvedCountP, rejectedCountP]);
       
       return {
         status: 'success',
         data: rows,
+        counts: {
+          pending: pendingCount,
+          approved: approvedCount,
+          rejected: rejectedCount
+        },
         pagination: {
           total: count,
           page: pageNum,
@@ -201,20 +236,24 @@ module.exports = {
   },
 
   // GET /api/my-appeals — regular user fetches their own submitted appeals
-  myAppeals: async (request, reply) => {
+    myAppeals: async (request, reply) => {
     try {
-      const { type, page = 1, limit = 15 } = request.query || {};
+      const { type, status, page = 1, limit = 15 } = request.query || {};
       const pageNum = Math.max(1, parseInt(page));
       const limitNum = Math.max(1, parseInt(limit));
       const offset = (pageNum - 1) * limitNum;
 
       const where = { user_id: request.user.id };
       if (type) where.type = type;
+      if (status && status !== 'All') where.status = status;
 
       const { count, rows } = await AppealAttendance.findAndCountAll({
         where,
         include: [{ model: Office, attributes: ['id', 'name'] }],
-        order: [['id', 'DESC']],
+        order: [
+          [sequelize.literal(`CASE WHEN status = 'Submitted' THEN 0 ELSE 1 END`), 'ASC'],
+          ['id', 'DESC']
+        ],
         limit: limitNum,
         offset,
         distinct: true
@@ -222,9 +261,23 @@ module.exports = {
 
       const totalPages = Math.ceil(count / limitNum);
 
+      const baseWhereForCounts = { user_id: request.user.id };
+      if (type) baseWhereForCounts.type = type;
+
+      const pendingCountP = AppealAttendance.count({ where: { ...baseWhereForCounts, status: 'Submitted' } });
+      const approvedCountP = AppealAttendance.count({ where: { ...baseWhereForCounts, status: 'Approved' } });
+      const rejectedCountP = AppealAttendance.count({ where: { ...baseWhereForCounts, status: 'Rejected' } });
+      
+      const [pendingCount, approvedCount, rejectedCount] = await Promise.all([pendingCountP, approvedCountP, rejectedCountP]);
+
       return {
         status: 'success',
         data: rows,
+        counts: {
+          pending: pendingCount,
+          approved: approvedCount,
+          rejected: rejectedCount
+        },
         pagination: {
           total: count, page: pageNum, limit: limitNum,
           totalPages, hasNextPage: pageNum < totalPages, hasPrevPage: pageNum > 1

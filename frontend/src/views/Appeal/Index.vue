@@ -86,20 +86,42 @@
               @update:modelValue="setTab" 
             />
 
-            <!-- Search Bar -->
-            <div class="relative w-full lg:w-80">
-              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <input 
-                v-model="searchQuery"
-                @input="fetchAppeals"
-                type="text" 
-                placeholder="Search by employee name..." 
-                class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder-slate-400 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-inner"
-              />
+            <!-- Search Bar & Status Filter -->
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+              <!-- Status Filter -->
+              <div class="relative w-full sm:w-auto min-w-[140px]">
+                <select 
+                  v-model="statusFilter"
+                  @change="setStatusFilter(statusFilter)"
+                  class="w-full pl-4 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-inner appearance-none cursor-pointer"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Submitted">Submitted</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+                <div class="absolute inset-y-0 right-0 flex items-center px-2.5 pointer-events-none text-slate-400">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Search Bar -->
+              <div class="relative w-full lg:w-80">
+                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </span>
+                <input 
+                  v-model="searchQuery"
+                  @input="fetchAppeals"
+                  type="text" 
+                  placeholder="Search by employee name..." 
+                  class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder-slate-400 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-inner"
+                />
+              </div>
             </div>
 
           </div>
@@ -302,6 +324,7 @@ const {
   currentTab,
   appeals,
   searchQuery,
+  statusFilter,
   loading,
   processingId,
   pendingCount,
@@ -336,6 +359,7 @@ const tabs = [
 ]
 
 const setTab = (tabValue) => store.setTab(tabValue)
+const setStatusFilter = (status) => store.setStatusFilter(status)
 const fetchAppeals = () => store.fetchAppeals()
 const handleApprove = (id) => store.handleApprove(id)
 const handleReject = (id) => store.handleReject(id)

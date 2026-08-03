@@ -196,16 +196,27 @@
 
               <!-- Status Badge -->
               <td class="px-3 py-4 whitespace-nowrap">
-                <span :class="[
-                  'px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-2xs',
-                  log.type === 'present' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                  log.type === 'late'    ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                  log.type === 'absent'  ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                  log.type === 'leave'   ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                                           'bg-slate-50 text-slate-700 border-slate-200'
-                ]">
-                  {{ log.type ? log.type.charAt(0).toUpperCase() + log.type.slice(1) : 'Unknown' }}
-                </span>
+                <div class="flex flex-col gap-1.5 items-start">
+                  <span :class="[
+                    'px-2.5 py-0.5 rounded-full text-xs font-semibold border shadow-2xs',
+                    log.type === 'present' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                    log.type === 'late'    ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    log.type === 'absent'  ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                    log.type === 'leave'   ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                             'bg-slate-50 text-slate-700 border-slate-200'
+                  ]">
+                    {{ log.type ? log.type.charAt(0).toUpperCase() + log.type.slice(1) : 'Unknown' }}
+                  </span>
+                  
+                  <div v-if="log.in_remark || log.out_remark" class="flex flex-col gap-0.5 text-[10px] text-slate-500 max-w-[180px] whitespace-normal">
+                    <div v-if="log.in_remark" class="truncate" :title="'In: ' + log.in_remark">
+                      <span class="font-medium text-slate-400">In:</span> {{ log.in_remark }}
+                    </div>
+                    <div v-if="log.out_remark" class="truncate" :title="'Out: ' + log.out_remark">
+                      <span class="font-medium text-slate-400">Out:</span> {{ log.out_remark }}
+                    </div>
+                  </div>
+                </div>
               </td>
             </tr>
           </tbody>

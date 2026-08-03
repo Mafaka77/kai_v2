@@ -8,8 +8,12 @@ export const useAppealStore = defineStore('appeal', {
     currentTab: 'late_reason',
     appeals: [],
     searchQuery: '',
+    statusFilter: 'All',
     loading: false,
     processingId: null,
+    pendingCount: 0,
+    approvedCount: 0,
+    rejectedCount: 0,
     pagination: {
       total: 0,
       page: 1,
@@ -21,14 +25,17 @@ export const useAppealStore = defineStore('appeal', {
   }),
 
   getters: {
-    pendingCount: (state) => state.appeals.filter(a => a.status === 'Submitted').length,
-    approvedCount: (state) => state.appeals.filter(a => a.status === 'Approved').length,
-    rejectedCount: (state) => state.appeals.filter(a => a.status === 'Rejected').length
   },
 
   actions: {
     setTab(tabValue) {
       this.currentTab = tabValue
+      this.pagination.page = 1
+      return this.fetchAppeals()
+    },
+
+    setStatusFilter(status) {
+      this.statusFilter = status
       this.pagination.page = 1
       return this.fetchAppeals()
     },
@@ -43,9 +50,18 @@ export const useAppealStore = defineStore('appeal', {
         if (this.searchQuery) {
           params.append('search', this.searchQuery)
         }
+        if (this.statusFilter && this.statusFilter !== 'All') {
+          params.append('status', this.statusFilter)
+        }
         const response = await api.get(`/appeals?${params.toString()}`)
+        console.log(response);
         if (response.data && response.data.status === 'success') {
           this.appeals = response.data.data
+          if (response.data.counts) {
+            this.pendingCount = response.data.counts.pending
+            this.approvedCount = response.data.counts.approved
+            this.rejectedCount = response.data.counts.rejected
+          }
           if (response.data.pagination) {
             this.pagination = response.data.pagination
           }

@@ -36,6 +36,23 @@
           <option value="Late">Late</option>
           <option value="Absent">Absent</option>
         </select>
+
+        <!-- Refresh Button -->
+        <button 
+          @click="$emit('refresh')"
+          :disabled="loading"
+          class="bg-white border border-slate-200 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-50 text-slate-700 text-xs font-bold p-2 rounded-xl transition-all cursor-pointer shadow-xs shrink-0 flex items-center justify-center"
+        >
+          <svg 
+            class="w-3.5 h-3.5 text-indigo-600" 
+            :class="{ 'animate-spin': loading }" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -164,8 +181,11 @@ import { ref, computed, watch } from 'vue'
 const props = defineProps({
   users: { type: Array, default: () => [] },
   officeName: { type: String, default: '' },
-  dateLabel: { type: String, default: 'Today' }
+  dateLabel: { type: String, default: 'Today' },
+  loading: { type: Boolean, default: false }
 })
+
+defineEmits(['refresh'])
 
 const search = ref('')
 const statusFilter = ref('All')
@@ -173,7 +193,7 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 
 const filteredUsers = computed(() => {
-  let list = props.users
+  let list = [...props.users]
 
   // Apply status filter
   if (statusFilter.value !== 'All') {
@@ -188,6 +208,16 @@ const filteredUsers = computed(() => {
       u.designation?.toLowerCase().includes(q)
     )
   }
+
+  // Sort: Earliest sign-in first, followed by employees who haven't signed in
+  list.sort((a, b) => {
+    if (a.signin_at && b.signin_at) {
+      return new Date(a.signin_at) - new Date(b.signin_at)
+    }
+    if (a.signin_at && !b.signin_at) return -1
+    if (!a.signin_at && b.signin_at) return 1
+    return (a.full_name || '').localeCompare(b.full_name || '')
+  })
 
   return list
 })
