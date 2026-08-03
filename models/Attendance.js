@@ -24,7 +24,13 @@ const Attendance = sequelize.define('Attendance', {
   tableName: 'attendances',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  updatedAt: 'updated_at',
+  indexes: [
+    {
+      name: 'idx_attendance_user_signin',
+      fields: ['user_id', 'signin_at']
+    }
+  ]
 });
 
 module.exports = Attendance;
