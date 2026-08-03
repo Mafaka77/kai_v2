@@ -42,26 +42,35 @@
         :chart-data="stats.office_attendance_chart || []"
       />
 
-      <!-- MANAGER DASHBOARD CHARTS -->
-      <div v-else-if="userRole === 'Manager'" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- Left Column: Today Attendance Ratio Donut Chart -->
-        <div class="lg:col-span-4">
-          <ManagerTodayPieChart 
-            :date-label="stats.date_label || 'Today'" 
-            :chart-data="stats.today_pie_chart || []" 
-          />
+      <!-- MANAGER DASHBOARD CHARTS & TABLES -->
+      <template v-else-if="userRole === 'Manager'">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Left Column: Today Attendance Ratio Donut Chart -->
+          <div class="lg:col-span-4">
+            <ManagerTodayPieChart 
+              :date-label="stats.date_label || 'Today'" 
+              :chart-data="stats.today_pie_chart || []" 
+            />
+          </div>
+
+          <!-- Right Column: Weekly Employee Attendance Breakdown Chart -->
+          <div class="lg:col-span-8">
+            <OfficeAttendanceChart
+              :title="`${stats.office_name || 'Assigned Office'} — Weekly Attendance`"
+              subtitle="Current week attendance breakdown per employee (Monday – Today)"
+              mode="manager"
+              :chart-data="stats.weekly_employee_chart || []"
+            />
+          </div>
         </div>
 
-        <!-- Right Column: Weekly Employee Attendance Breakdown Chart -->
-        <div class="lg:col-span-8">
-          <OfficeAttendanceChart
-            :title="`${stats.office_name || 'Assigned Office'} — Weekly Attendance`"
-            subtitle="Current week attendance breakdown per employee (Monday – Today)"
-            mode="manager"
-            :chart-data="stats.weekly_employee_chart || []"
-          />
-        </div>
-      </div>
+        <!-- Staff Attendance Breakdown Table -->
+        <ManagerTodayAttendanceTable 
+          :users="stats.today_user_attendances || []"
+          :office-name="stats.office_name || ''"
+          :date-label="stats.date_label || 'Today'"
+        />
+      </template>
 
       <!-- REGULAR USER DASHBOARD WELCOME CARD -->
       <div v-else class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -92,6 +101,7 @@ import ManagerDashboardStats from './components/dashboard/ManagerDashboardStats.
 import UserDashboardStats from './components/dashboard/UserDashboardStats.vue'
 import ManagerTodayPieChart from './components/dashboard/ManagerTodayPieChart.vue'
 import OfficeAttendanceChart from './components/dashboard/OfficeAttendanceChart.vue'
+import ManagerTodayAttendanceTable from './components/dashboard/ManagerTodayAttendanceTable.vue'
 import { useAuthStore } from './stores/auth'
 import api from './plugins/axios'
 import { useUserDashboardStore } from './stores/userDashboard'

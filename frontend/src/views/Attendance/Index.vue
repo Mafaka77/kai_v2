@@ -113,6 +113,21 @@
             {{ summary.leave || 0 }}
           </span>
         </button>
+
+        <!-- PDF Export Button -->
+        <button 
+          @click="exportToPDF"
+          :disabled="exporting"
+          class="ml-auto bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 text-xs font-bold py-2 px-3.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-xs border border-indigo-200/40 disabled:opacity-50 shrink-0"
+        >
+          <svg v-if="exporting" class="w-3.5 h-3.5 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>{{ exporting ? 'Exporting...' : `Export ${currentStatusLabel} to PDF` }}</span>
+        </button>
       </div>
 
       <!-- Table -->
@@ -238,12 +253,16 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import MainLayout from '../../layouts/MainLayout.vue'
 import { useAttendanceStore } from '../../stores/attendance'
+import api from '../../plugins/axios'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const store = useAttendanceStore()
+const exporting = ref(false)
 
 const {
   attendances,
@@ -293,6 +312,113 @@ const formatTime = (dateString) => {
   hours = hours ? hours : 12
   const hoursStr = String(hours).padStart(2, '0')
   return `${hoursStr}:${minutes} ${ampm}`
+}
+
+const currentStatusLabel = computed(() => {
+  switch (statusFilter.value) {
+    case 'present': return 'Present Staff'
+    case 'late': return 'Late Staff'
+    case 'absent': return 'Absent Staff'
+    case 'leave': return 'Staff on Leave'
+    default: return 'All Staff'
+  }
+})
+
+const exportToPDF = async () => {
+  exporting.value = true
+  try {
+
+    // Fetch all matching records for the report
+    const params = new URLSearchParams()
+    if (selectedOfficeId.value) params.append('office_id', selectedOfficeId.value)
+    params.append('date', selectedDate.value || '')
+    if (statusFilter.value && statusFilter.value !== 'all') {
+      params.append('status_filter', statusFilter.value)
+    }
+    params.append('page', '1')
+    params.append('limit', '10000') // fetch all matching records
+    
+    const response = await api.get(`/attendances?${params.toString()}`)
+    if (!response.data || response.data.status !== 'success') {
+      throw new Error('Failed to fetch data for export')
+    }
+
+    const records = response.data.data || []
+    const officeName = selectedOfficeId.value 
+      ? (offices.value.find(o => o.id === parseInt(selectedOfficeId.value))?.name || 'Selected Office') 
+      : 'All Offices'
+
+    // Create PDF Document
+    const doc = new jsPDF()
+
+    // Header section
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.text('Attendance Log Report', 14, 20)
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Office: ${officeName}`, 14, 28)
+    doc.text(`Date: ${formatDate(selectedDate.value)}`, 14, 34)
+    doc.text(`Status Filter: ${currentStatusLabel.value}`, 14, 40)
+    doc.text(`Total Records: ${records.length}`, 14, 46)
+
+    // Table definition
+    const tableColumns = ['User', 'Mobile', 'Office', 'Sign In', 'Sign Out', 'Status']
+    const tableRows = records.map(log => {
+      let signInStr = '—'
+      if (log.type === 'absent') {
+        signInStr = 'Not Signed In'
+      } else if (log.type === 'leave') {
+        signInStr = `On Leave (${log.leaveType || 'Approved'})`
+      } else if (log.signin_at) {
+        signInStr = `${formatDate(log.signin_at)} ${formatTime(log.signin_at)}`
+      }
+
+      let signOutStr = '—'
+      if (log.signout_at) {
+        signOutStr = `${formatDate(log.signout_at)} ${formatTime(log.signout_at)}`
+      } else if (log.type === 'present' || log.type === 'late') {
+        signOutStr = 'Pending'
+      }
+
+      return [
+        log.User?.full_name || 'Unknown',
+        log.User?.mobile || '—',
+        log.Office?.name || '—',
+        signInStr,
+        signOutStr,
+        log.type ? log.type.charAt(0).toUpperCase() + log.type.slice(1) : 'Unknown'
+      ]
+    })
+
+    // Render Table using autoTable
+    autoTable(doc, {
+      startY: 52,
+      head: [tableColumns],
+      body: tableRows,
+      theme: 'striped',
+      headStyles: { fillColor: [79, 70, 229] }, // Indigo 600
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      columnStyles: {
+        0: { cellWidth: 35 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 40 },
+        4: { cellWidth: 40 },
+        5: { cellWidth: 20 }
+      }
+    })
+
+    const filename = `attendance_report_${statusFilter.value}_${selectedDate.value}.pdf`
+    doc.save(filename)
+
+  } catch (error) {
+    console.error('Failed to export PDF:', error)
+    alert('Failed to export PDF report: ' + error.message)
+  } finally {
+    exporting.value = false
+  }
 }
 
 const fetchAttendances = () => store.fetchAttendances()

@@ -55,7 +55,7 @@ module.exports = {
     }
   },
 
-  // GET /api/leaves — Managers get users currently on leave today
+  // GET /web/leaves — Managers get users currently on leave today
   index: async (request, reply) => {
     try {
       const { search, office_id, page = 1, limit = 15 } = request.query;

@@ -11,17 +11,31 @@
         </p>
       </div>
 
-      <!-- Search Box -->
-      <div class="relative w-full sm:w-64">
-        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <input 
-          v-model="search"
-          type="text" 
-          placeholder="Filter employee..."
-          class="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-        />
+      <!-- Search & Filters -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+        <!-- Search Box -->
+        <div class="relative w-full sm:w-48 lg:w-64">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input 
+            v-model="search"
+            type="text" 
+            placeholder="Filter employee..."
+            class="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+          />
+        </div>
+
+        <!-- Status Filter -->
+        <select 
+          v-model="statusFilter"
+          class="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-600 font-medium cursor-pointer"
+        >
+          <option value="All">All Statuses</option>
+          <option value="Present">Present</option>
+          <option value="Late">Late</option>
+          <option value="Absent">Absent</option>
+        </select>
       </div>
     </div>
 
@@ -38,12 +52,12 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-if="filteredUsers.length === 0">
+          <tr v-if="paginatedUsers.length === 0">
             <td colspan="5" class="py-8 text-center text-slate-400 font-medium">
               No staff attendance records found
             </td>
           </tr>
-          <tr v-for="user in filteredUsers" :key="user.id" class="hover:bg-slate-50/80 transition-colors">
+          <tr v-for="user in paginatedUsers" :key="user.id" class="hover:bg-slate-50/80 transition-colors">
             <td class="py-3 px-4">
               <div class="font-bold text-slate-900">{{ user.full_name }}</div>
               <div class="text-[10px] text-slate-400 font-mono">{{ user.mobile || 'No mobile' }}</div>
@@ -78,14 +92,14 @@
                 Present
               </span>
               <span 
-                v-else-if="user.status === 'Late'"
+                v-if="user.status === 'Late'"
                 class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60"
               >
                 <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                 Late
               </span>
               <span 
-                v-else
+                v-if="user.status === 'Absent'"
                 class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200/60"
               >
                 <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
@@ -96,11 +110,56 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Pagination controls -->
+    <div v-if="totalPages > 1" class="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 pt-4 mt-2">
+      <div class="text-xs text-slate-500 text-center sm:text-left">
+        Showing <span class="font-semibold text-slate-700">{{ startIndex + 1 }}</span> to 
+        <span class="font-semibold text-slate-700">{{ endIndex }}</span> of 
+        <span class="font-semibold text-slate-700">{{ totalRecords }}</span> staff members
+      </div>
+      
+      <div class="flex items-center gap-1.5">
+        <button 
+          @click="prevPage" 
+          :disabled="currentPage === 1"
+          class="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 active:bg-slate-100 transition-colors disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <button 
+          v-for="page in visiblePageNumbers" 
+          :key="page"
+          @click="goToPage(page)"
+          :class="[
+            'px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer',
+            currentPage === page 
+              ? 'bg-indigo-600 text-white shadow-xs' 
+              : 'border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+          ]"
+        >
+          {{ page }}
+        </button>
+
+        <button 
+          @click="nextPage" 
+          :disabled="currentPage === totalPages"
+          class="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 active:bg-slate-100 transition-colors disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
   users: { type: Array, default: () => [] },
@@ -109,15 +168,81 @@ const props = defineProps({
 })
 
 const search = ref('')
+const statusFilter = ref('All')
+const currentPage = ref(1)
+const pageSize = ref(10)
 
 const filteredUsers = computed(() => {
-  if (!search.value) return props.users
-  const q = search.value.toLowerCase()
-  return props.users.filter(u => 
-    u.full_name?.toLowerCase().includes(q) ||
-    u.designation?.toLowerCase().includes(q) ||
-    u.status?.toLowerCase().includes(q)
-  )
+  let list = props.users
+
+  // Apply status filter
+  if (statusFilter.value !== 'All') {
+    list = list.filter(u => u.status === statusFilter.value)
+  }
+
+  // Apply search query filter
+  if (search.value) {
+    const q = search.value.toLowerCase()
+    list = list.filter(u => 
+      u.full_name?.toLowerCase().includes(q) ||
+      u.designation?.toLowerCase().includes(q)
+    )
+  }
+
+  return list
+})
+
+// Reset page to 1 when search query changes
+watch(search, () => {
+  currentPage.value = 1
+})
+
+// Reset page to 1 when status filter changes
+watch(statusFilter, () => {
+  currentPage.value = 1
+})
+
+// Reset page to 1 if props data changes
+watch(() => props.users, () => {
+  currentPage.value = 1
+})
+
+const totalRecords = computed(() => filteredUsers.value.length)
+const totalPages = computed(() => Math.ceil(totalRecords.value / pageSize.value))
+
+const startIndex = computed(() => (currentPage.value - 1) * pageSize.value)
+const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, totalRecords.value))
+
+const paginatedUsers = computed(() => {
+  return filteredUsers.value.slice(startIndex.value, startIndex.value + pageSize.value)
+})
+
+const prevPage = () => {
+  if (currentPage.value > 1) currentPage.value--
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) currentPage.value++
+}
+
+const goToPage = (page) => {
+  currentPage.value = page
+}
+
+const visiblePageNumbers = computed(() => {
+  const pages = []
+  const maxVisible = 5
+  let start = Math.max(1, currentPage.value - Math.floor(maxVisible / 2))
+  let end = Math.min(totalPages.value, start + maxVisible - 1)
+
+  if (end - start + 1 < maxVisible) {
+    start = Math.max(1, end - maxVisible + 1)
+  }
+
+  for (let i = start; i <= end; i++) {
+    pages.push(i)
+  }
+  return pages
 })
 
 const formatTime = (dt) => {
