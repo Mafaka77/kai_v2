@@ -29,6 +29,46 @@ const Attendance = sequelize.define('Attendance', {
     {
       name: 'idx_attendance_user_signin',
       fields: ['user_id', 'signin_at']
+    },
+    {
+      name: 'attendances_id_index',
+      fields: ['id']
+    },
+    {
+      name: 'attendances_signout_at_index',
+      fields: ['signout_at']
+    },
+    {
+      name: 'attendances_signout_lat_index',
+      fields: ['signout_lat']
+    },
+    {
+      name: 'attendances_signout_lng_index',
+      fields: ['signout_lng']
+    },
+    {
+      name: 'attendances_out_remark_index',
+      fields: ['out_remark']
+    },
+    {
+      name: 'attendances_signin_at_index',
+      fields: ['signin_at']
+    },
+    {
+      name: 'attendances_user_id_index',
+      fields: ['user_id']
+    },
+    {
+      name: 'attendances_office_id_index',
+      fields: ['office_id']
+    },
+    {
+      name: 'attendances_start_date_index',
+      fields: ['start_date']
+    },
+    {
+      name: 'attendances_end_date_index',
+      fields: ['end_date']
     }
   ]
 });
