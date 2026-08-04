@@ -1,65 +1,58 @@
-const { AppealAttendance, Attendance, User, Office, Device, sequelize } = require('../models');
+const { AppealAttendance, Attendance, User, Office, Role, Device, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const moment = require('moment');
-
-const holidays = [
-  // 2024
-  '01-01-2024', '02-02-2024', '11-01-2024', '26-01-2024', '20-02-2024', '01-03-2024', '25-03-2024', '29-03-2024',
-  '11-04-2024', '21-04-2024', '23-05-2024', '15-06-2024', '17-06-2024', '30-06-2024', '06-07-2024', '17-07-2024',
-  '15-08-2024', '16-09-2024', '02-10-2024', '12-10-2024', '31-10-2024', '15-11-2024', '24-12-2024', '24-12-2024',
-  '26-12-2024', '31-12-2024',
-  // 2025
-  '01-01-2025', '02-01-2025', '11-01-2025', '26-01-2025', '20-02-2025', '26-02-2025', '07-03-2025', '14-03-2025',
-  '31-03-2025', '10-04-2025', '18-04-2025', '12-05-2025', '07-06-2025', '15-06-2025', '30-06-2025', '06-07-2025',
-  '17-07-2025', '15-08-2025', '16-08-2025', '05-09-2025', '02-10-2025', '20-10-2025', '05-11-2025', '24-12-2025',
-  '25-12-2025', '26-12-2025', '31-12-2025',
-  // 2026
-  '01-01-2026', '02-01-2026', '11-01-2026', '26-01-2026', '20-02-2026', '04-03-2026', '13-03-2026', '21-03-2026',
-  '26-03-2026', '31-03-2026', '03-04-2026', '14-04-2026', '01-05-2026', '27-05-2026', '15-06-2026', '26-06-2026', '30-06-2026',
-  '06-07-2026', '15-08-2026', '26-08-2026', '04-09-2026', '02-10-2026', '20-10-2026', '08-11-2026', '24-11-2026',
-  '24-12-2026', '25-12-2026', '26-12-2026', '31-12-2026'
-];
+const { HOLIDAY_DATES_DD_MM_YYYY: holidays } = require('../constants/holidays');
 
 module.exports = {
   index: async (request, reply) => {
     try {
-      const { type, search, status, page = 1, limit = 15 } = request.query;
+      const { type, search, status, office_id, page = 1, limit = 15 } = request.query;
       const pageNum = Math.max(1, parseInt(page));
       const limitNum = Math.max(1, parseInt(limit));
       const offset = (pageNum - 1) * limitNum;
       
-      // Determine what offices the logged-in user manages
       const loggedInUser = await User.findByPk(request.user.id, {
-        include: [{ model: Office, as: 'Offices' }]
+        include: [
+          { model: Office, as: 'Offices' },
+          { model: Role, as: 'Roles', through: { attributes: [] } }
+        ]
       });
-      
-      const managedOfficeIds = loggedInUser.Offices.map(o => o.id);
-      
+
+      let availableOffices = loggedInUser?.Offices || [];
+      let targetOfficeIds = availableOffices.map(o => o.id);
+
+      const roles = loggedInUser?.Roles ? loggedInUser.Roles.map(r => r.name) : [];
+      const isAdmin = roles.includes('Admin');
+
+      if (isAdmin && targetOfficeIds.length === 0) {
+        availableOffices = await Office.findAll({ attributes: ['id', 'name'], order: [['name', 'ASC']] });
+        targetOfficeIds = availableOffices.map(o => o.id);
+      }
+
+      let appealWhere = { type };
+
+      if (office_id && office_id !== 'All') {
+        appealWhere.office_id = parseInt(office_id);
+      } else if (targetOfficeIds.length > 0) {
+        appealWhere.office_id = { [Op.in]: targetOfficeIds };
+      }
+
+      if (status && status !== 'All') {
+        appealWhere.status = status;
+      }
+
       let userWhere = {};
       if (search) {
         userWhere.full_name = { [Op.like]: `%${search}%` };
       }
-      
-      let appealWhere = { type };
-      if (status && status !== 'All') {
-        appealWhere.status = status;
-      }
-      
+
       const { count, rows } = await AppealAttendance.findAndCountAll({
         where: appealWhere,
         include: [
           {
             model: User,
             required: true,
-            where: userWhere,
-            include: [
-              {
-                model: Office,
-                as: 'Offices',
-                required: true,
-                where: { id: managedOfficeIds }
-              }
-            ]
+            where: userWhere
           },
           { model: Office }
         ],
@@ -71,34 +64,28 @@ module.exports = {
         offset,
         distinct: true
       });
-      
-      const totalPages = Math.ceil(count / limitNum);
 
-      const getCommonInclude = () => [
-        {
-          model: User,
-          required: true,
-          where: userWhere,
-          include: [
-            {
-              model: Office,
-              as: 'Offices',
-              required: true,
-              where: { id: managedOfficeIds }
-            }
-          ]
-        }
-      ];
+      const totalPages = Math.ceil(count / limitNum) || 1;
 
-      const pendingCountP = AppealAttendance.count({ where: { type, status: 'Submitted' }, include: getCommonInclude(), distinct: true, col: 'id' });
-      const approvedCountP = AppealAttendance.count({ where: { type, status: 'Approved' }, include: getCommonInclude(), distinct: true, col: 'id' });
-      const rejectedCountP = AppealAttendance.count({ where: { type, status: 'Rejected' }, include: getCommonInclude(), distinct: true, col: 'id' });
-      
+      let countWhereBase = { type };
+      if (office_id && office_id !== 'All') {
+        countWhereBase.office_id = parseInt(office_id);
+      } else if (targetOfficeIds.length > 0) {
+        countWhereBase.office_id = { [Op.in]: targetOfficeIds };
+      }
+
+      const getCountInclude = () => [{ model: User, required: true, where: userWhere }];
+
+      const pendingCountP = AppealAttendance.count({ where: { ...countWhereBase, status: 'Submitted' }, include: getCountInclude(), distinct: true, col: 'id' });
+      const approvedCountP = AppealAttendance.count({ where: { ...countWhereBase, status: 'Approved' }, include: getCountInclude(), distinct: true, col: 'id' });
+      const rejectedCountP = AppealAttendance.count({ where: { ...countWhereBase, status: 'Rejected' }, include: getCountInclude(), distinct: true, col: 'id' });
+
       const [pendingCount, approvedCount, rejectedCount] = await Promise.all([pendingCountP, approvedCountP, rejectedCountP]);
-      
+
       return {
         status: 'success',
         data: rows,
+        offices: availableOffices,
         counts: {
           pending: pendingCount,
           approved: approvedCount,

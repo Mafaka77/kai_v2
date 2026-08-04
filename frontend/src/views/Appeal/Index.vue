@@ -77,40 +77,69 @@
         
         <!-- Filter Tabs & Search Header -->
         <div class="p-6 border-b border-slate-100 bg-slate-50/30 space-y-4">
-          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            
-            <!-- Category Tabs -->
+          <!-- Row 1: Category Tabs -->
+          <div class="flex items-center justify-between">
             <PillTabs 
               :tabs="tabs" 
               :modelValue="currentTab" 
               @update:modelValue="setTab" 
             />
+          </div>
 
-            <!-- Search Bar & Status Filter -->
-            <div class="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-              <!-- Status Filter -->
-              <div class="relative w-full sm:w-auto min-w-[140px]">
-                <select 
-                  v-model="statusFilter"
-                  @change="setStatusFilter(statusFilter)"
-                  class="w-full pl-4 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-inner appearance-none cursor-pointer"
-                >
-                  <option value="All">All Statuses</option>
-                  <option value="Submitted">Submitted</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Rejected">Rejected</option>
-                </select>
-                <div class="absolute inset-y-0 right-0 flex items-center px-2.5 pointer-events-none text-slate-400">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
+          <!-- Row 2: Office Filter, Status Filter, and Search -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <!-- Office Filter -->
+              <div class="relative min-w-[200px] w-full sm:w-auto">
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Filter by Office</label>
+                <div class="relative">
+                  <select 
+                    v-model="selectedOffice"
+                    @change="setOfficeFilter(selectedOffice)"
+                    class="w-full pl-3.5 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-2xs appearance-none cursor-pointer"
+                  >
+                    <option value="All">🏢 All Assigned Offices</option>
+                    <option v-for="off in offices" :key="off.id" :value="off.id">
+                      🏢 {{ off.name }}
+                    </option>
+                  </select>
+                  <div class="absolute inset-y-0 right-0 flex items-center px-2.5 pointer-events-none text-slate-400">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </div>
               </div>
 
-              <!-- Search Bar -->
-              <div class="relative w-full lg:w-80">
-                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <!-- Status Filter -->
+              <div class="relative min-w-[150px] w-full sm:w-auto">
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Filter by Status</label>
+                <div class="relative">
+                  <select 
+                    v-model="statusFilter"
+                    @change="setStatusFilter(statusFilter)"
+                    class="w-full pl-3.5 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-2xs appearance-none cursor-pointer"
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="Submitted">Submitted</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                  <div class="absolute inset-y-0 right-0 flex items-center px-2.5 pointer-events-none text-slate-400">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Search Input -->
+            <div class="w-full sm:w-72">
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Search Employee</label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </span>
@@ -118,12 +147,11 @@
                   v-model="searchQuery"
                   @input="fetchAppeals"
                   type="text" 
-                  placeholder="Search by employee name..." 
-                  class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm placeholder-slate-400 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-inner"
+                  placeholder="Search by name..." 
+                  class="w-full pl-9 pr-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-2xs"
                 />
               </div>
             </div>
-
           </div>
         </div>
 
@@ -323,6 +351,8 @@ const store = useAppealStore()
 const {
   currentTab,
   appeals,
+  offices,
+  selectedOffice,
   searchQuery,
   statusFilter,
   loading,
@@ -360,6 +390,7 @@ const tabs = [
 
 const setTab = (tabValue) => store.setTab(tabValue)
 const setStatusFilter = (status) => store.setStatusFilter(status)
+const setOfficeFilter = (officeId) => store.setOfficeFilter(officeId)
 const fetchAppeals = () => store.fetchAppeals()
 const handleApprove = (id) => store.handleApprove(id)
 const handleReject = (id) => store.handleReject(id)

@@ -18,6 +18,8 @@ import MyAttendanceHistory from '../views/MyAttendance/History.vue'
 import ChangeOfficeIndex from '../views/ChangeOffice/Index.vue'
 import AttendanceAppealIndex from '../views/AttendanceAppeal/Index.vue'
 import HomeIndex from '../views/Home/Index.vue'
+import CalendarIndex from '../views/Calendar/Index.vue'
+import NotificationIndex from '../views/Notification/Index.vue'
 
 const routes = [
   {
@@ -130,6 +132,18 @@ const routes = [
     path: '/attendance-appeal',
     name: 'AttendanceAppeal',
     component: AttendanceAppealIndex,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/calendar',
+    name: 'Calendar',
+    component: CalendarIndex,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/notifications',
+    name: 'Notifications',
+    component: NotificationIndex,
     meta: { requiresAuth: true }
   }
 ]

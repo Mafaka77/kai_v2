@@ -69,12 +69,30 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-if="paginatedUsers.length === 0">
+          <tr v-if="loading" v-for="n in 5" :key="n" class="animate-pulse">
+            <td class="py-3.5 px-4 space-y-1.5">
+              <div class="h-3.5 bg-slate-200 rounded-md w-32"></div>
+              <div class="h-2.5 bg-slate-100 rounded-md w-20"></div>
+            </td>
+            <td class="py-3.5 px-4">
+              <div class="h-3 bg-slate-200 rounded-md w-24"></div>
+            </td>
+            <td class="py-3.5 px-4">
+              <div class="h-3 bg-slate-100 rounded-md w-16"></div>
+            </td>
+            <td class="py-3.5 px-4">
+              <div class="h-3 bg-slate-100 rounded-md w-16"></div>
+            </td>
+            <td class="py-3.5 px-4 text-right">
+              <div class="h-5 bg-slate-200 rounded-full w-16 ml-auto"></div>
+            </td>
+          </tr>
+          <tr v-else-if="paginatedUsers.length === 0">
             <td colspan="5" class="py-8 text-center text-slate-400 font-medium">
               No staff attendance records found
             </td>
           </tr>
-          <tr v-for="user in paginatedUsers" :key="user.id" class="hover:bg-slate-50/80 transition-colors">
+          <tr v-else v-for="user in paginatedUsers" :key="user.id" class="hover:bg-slate-50/80 transition-colors">
             <td class="py-3 px-4">
               <div class="font-bold text-slate-900">{{ user.full_name }}</div>
               <div class="text-[10px] text-slate-400 font-mono">{{ user.mobile || 'No mobile' }}</div>
@@ -122,6 +140,15 @@
                 <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
                 Absent
               </span>
+
+              <div v-if="user.in_remark || user.out_remark" class="flex flex-col gap-0.5 text-[10px] text-slate-500 mt-1 max-w-[180px] ml-auto whitespace-normal">
+                <div v-if="user.in_remark" class="truncate text-right" :title="'In: ' + user.in_remark">
+                  <span class="font-medium text-slate-400">In:</span> {{ user.in_remark }}
+                </div>
+                <div v-if="user.out_remark" class="truncate text-right" :title="'Out: ' + user.out_remark">
+                  <span class="font-medium text-slate-400">Out:</span> {{ user.out_remark }}
+                </div>
+              </div>
             </td>
           </tr>
         </tbody>

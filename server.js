@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const fastifyStatic = require('@fastify/static');
 const { sequelize, User, Office, District, Attendance } = require('./models');
+require('./queues/notificationQueue');
 
 fastify.register(cors, { 
   origin: '*',
@@ -47,6 +48,7 @@ fastify.register(require('./routes/accounts'));
 fastify.register(require('./routes/reports'));
 fastify.register(require('./routes/postingRequests'));
 fastify.register(require('./routes/leaves'));
+fastify.register(require('./routes/notifications'));
 
 // ─── Mobile API Routes (/api/*) ─────────────────────────────────────────────
 // Mirrors routes/api.php from the legacy Laravel app.

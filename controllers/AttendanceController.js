@@ -1,6 +1,7 @@
 const { Attendance, User, Office } = require('../models');
 const { Op } = require('sequelize');
 const moment = require('moment');
+const { HOLIDAY_DATES_DD_MM_YYYY } = require('../constants/holidays');
 
 module.exports = {
   index: async (request, reply) => {
@@ -46,7 +47,7 @@ module.exports = {
           signin_at: { [Op.gte]: startOfDay, [Op.lte]: endOfDay }
         },
         include: [
-          { model: User, attributes: ['id', 'full_name', 'mobile'] },
+          { model: User, attributes: ['id', 'full_name', 'designation', 'mobile'] },
           { model: Office, attributes: ['id', 'name'] }
         ],
         order: [['signin_at', 'ASC']]
@@ -61,14 +62,14 @@ module.exports = {
           end_date: { [Op.gte]: targetDate }
         },
         include: [
-          { model: User, attributes: ['id', 'full_name', 'mobile'] },
+          { model: User, attributes: ['id', 'full_name', 'designation', 'mobile'] },
           { model: Office, attributes: ['id', 'name'] }
         ]
       });
 
       // 3. Fetch all assigned staff members for the target offices
       const assignedUsers = await User.findAll({
-        attributes: ['id', 'full_name', 'mobile'],
+        attributes: ['id', 'full_name', 'designation', 'mobile'],
         include: [
           {
             model: Office,
@@ -112,7 +113,7 @@ module.exports = {
             signout_at: null,
             type: 'leave',
             leaveType: leave.leaveType,
-            User: { id: u.id, full_name: u.full_name, mobile: u.mobile },
+            User: { id: u.id, full_name: u.full_name, designation: u.designation, mobile: u.mobile },
             Office: officeObj
           });
         } else {
@@ -123,7 +124,7 @@ module.exports = {
             signin_at: null,
             signout_at: null,
             type: 'absent',
-            User: { id: u.id, full_name: u.full_name, mobile: u.mobile },
+            User: { id: u.id, full_name: u.full_name, designation: u.designation, mobile: u.mobile },
             Office: officeObj
           });
         }
@@ -371,6 +372,155 @@ module.exports = {
           hasPrevPage: pageNum > 1
         }
       };
+    } catch (error) {
+      return reply.code(500).send({ status: 'error', message: error.message });
+    }
+  },
+
+  // Export CSV attendance history for a specific user including holidays, weekends, leaves & absent days
+  exportUserHistory: async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { from, to } = request.query || {};
+
+      const holidaysList = HOLIDAY_DATES_DD_MM_YYYY;
+
+      const user = await User.findByPk(id, {
+        attributes: ['id', 'full_name', 'designation', 'mobile'],
+        include: [{ model: Office, as: 'Offices', attributes: ['id', 'name'], through: { attributes: [] } }]
+      });
+
+      if (!user) {
+        return reply.code(404).send({ status: 'error', message: 'User not found' });
+      }
+
+      const defaultOfficeName = user.Offices && user.Offices.length ? user.Offices[0].name : '-';
+
+      // Determine date bounds
+      let startDate, endDate;
+      if (from && to) {
+        startDate = moment(from, 'YYYY-MM-DD');
+        endDate = moment(to, 'YYYY-MM-DD');
+      } else if (from) {
+        startDate = moment(from, 'YYYY-MM-DD');
+        endDate = moment();
+      } else if (to) {
+        const earliest = await Attendance.findOne({
+          where: { user_id: id },
+          order: [['signin_at', 'ASC']]
+        });
+        startDate = earliest && earliest.signin_at ? moment(earliest.signin_at) : moment().startOf('month');
+        endDate = moment(to, 'YYYY-MM-DD');
+      } else {
+        const earliest = await Attendance.findOne({
+          where: { user_id: id },
+          order: [['signin_at', 'ASC']]
+        });
+        startDate = earliest && earliest.signin_at ? moment(earliest.signin_at) : moment().startOf('month');
+        endDate = moment();
+      }
+
+      // Fetch all attendance and leave records for user within [startDate, endDate]
+      const dbRecords = await Attendance.findAll({
+        where: {
+          user_id: id,
+          [Op.or]: [
+            {
+              signin_at: {
+                [Op.gte]: startDate.clone().startOf('day').toDate(),
+                [Op.lte]: endDate.clone().endOf('day').toDate()
+              }
+            },
+            {
+              leaveType: { [Op.ne]: null },
+              start_date: { [Op.lte]: endDate.format('YYYY-MM-DD') },
+              end_date: { [Op.gte]: startDate.format('YYYY-MM-DD') }
+            }
+          ]
+        },
+        include: [{ model: Office, attributes: ['id', 'name'] }],
+        order: [['signin_at', 'ASC']]
+      });
+
+      const attendanceMap = new Map();
+      const leaveMap = new Map();
+
+      dbRecords.forEach(rec => {
+        if (rec.signin_at) {
+          const dateStr = moment(rec.signin_at).format('YYYY-MM-DD');
+          attendanceMap.set(dateStr, rec);
+        } else if (rec.leaveType && rec.start_date && rec.end_date) {
+          let currLeave = moment(rec.start_date);
+          const endLeave = moment(rec.end_date);
+          while (currLeave.isSameOrBefore(endLeave, 'day')) {
+            leaveMap.set(currLeave.format('YYYY-MM-DD'), rec);
+            currLeave.add(1, 'day');
+          }
+        }
+      });
+
+      const escapeCsv = (str) => {
+        if (str === null || str === undefined) return '""';
+        const stringified = String(str).replace(/"/g, '""');
+        return `"${stringified}"`;
+      };
+
+      let csv = 'Date,Day,Employee Name,Designation,Mobile,Office,Status,Sign In Time,Sign Out Time,In Remark,Out Remark\n';
+
+      const today = moment().startOf('day');
+      let curr = startDate.clone();
+
+      while (curr.isSameOrBefore(endDate, 'day')) {
+        const dateStr = curr.format('YYYY-MM-DD');
+        const formattedHolidaysDate = curr.format('DD-MM-YYYY');
+        const dayName = curr.format('dddd');
+        const dayOfWeek = curr.day(); // 0 = Sunday, 6 = Saturday
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const isHoliday = holidaysList.includes(formattedHolidaysDate);
+
+        const attRecord = attendanceMap.get(dateStr);
+        const leaveRecord = leaveMap.get(dateStr);
+
+        let status = 'ABSENT';
+        let signinStr = '-';
+        let signoutStr = '-';
+        let inRemark = '';
+        let outRemark = '';
+        let officeName = defaultOfficeName;
+
+        if (attRecord) {
+          status = attRecord.type ? attRecord.type.toUpperCase() : 'PRESENT';
+          signinStr = attRecord.signin_at ? moment(attRecord.signin_at).format('HH:mm:ss') : '-';
+          signoutStr = attRecord.signout_at ? moment(attRecord.signout_at).format('HH:mm:ss') : '-';
+          inRemark = attRecord.in_remark || '';
+          outRemark = attRecord.out_remark || '';
+          if (attRecord.Office) officeName = attRecord.Office.name;
+        } else if (leaveRecord) {
+          status = `LEAVE (${(leaveRecord.leaveType || 'LEAVE').toUpperCase()})`;
+          inRemark = leaveRecord.in_remark || '';
+          outRemark = leaveRecord.out_remark || '';
+          if (leaveRecord.Office) officeName = leaveRecord.Office.name;
+        } else if (isHoliday) {
+          status = 'HOLIDAY';
+        } else if (isWeekend) {
+          status = 'WEEKEND';
+        } else if (curr.isAfter(today, 'day')) {
+          status = 'UPCOMING';
+        } else {
+          status = 'ABSENT';
+        }
+
+        csv += `${escapeCsv(dateStr)},${escapeCsv(dayName)},${escapeCsv(user.full_name)},${escapeCsv(user.designation || 'Staff')},${escapeCsv(user.mobile || '')},${escapeCsv(officeName)},${escapeCsv(status)},${escapeCsv(signinStr)},${escapeCsv(signoutStr)},${escapeCsv(inRemark)},${escapeCsv(outRemark)}\n`;
+
+        curr.add(1, 'day');
+      }
+
+      const safeName = (user.full_name || 'employee').toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const filename = `attendance_history_${safeName}.csv`;
+
+      reply.header('Content-Type', 'text/csv');
+      reply.header('Content-Disposition', `attachment; filename="${filename}"`);
+      return reply.send(csv);
     } catch (error) {
       return reply.code(500).send({ status: 'error', message: error.message });
     }

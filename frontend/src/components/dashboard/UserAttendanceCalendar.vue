@@ -52,6 +52,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import { PUBLIC_HOLIDAY_DATES_DD_MM_YYYY as holidays } from '../../constants/holidays.js'
 
 const props = defineProps({
   attendances: {
@@ -61,14 +62,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['change-month'])
-
-const holidays = [
-  // 2026
-  '01-01-2026', '02-01-2026', '11-01-2026', '26-01-2026', '20-02-2026', '04-03-2026', '13-03-2026', '21-03-2026',
-  '26-03-2026', '31-03-2026', '03-04-2026', '14-04-2026', '01-05-2026', '27-05-2026', '15-06-2026', '26-06-2026', '30-06-2026',
-  '06-07-2026', '15-08-2026', '26-08-2026', '04-09-2026', '02-10-2026', '20-10-2026', '08-11-2026', '24-11-2026',
-  '24-12-2026', '25-12-2026', '26-12-2026', '31-12-2026'
-];
 
 const today = new Date()
 const viewDate = ref(new Date())

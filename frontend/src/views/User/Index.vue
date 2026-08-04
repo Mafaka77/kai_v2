@@ -202,7 +202,13 @@
               </div>
               
               <div class="mb-6">
-                <label class="block text-sm font-semibold text-slate-700 mb-1.5">Office Placements (Multiple)</label>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="block text-sm font-semibold text-slate-700">Office Placements (Multiple)</label>
+                  <span v-if="form.office_ids && form.office_ids.length > 0" class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                    {{ form.office_ids.length }} assigned
+                  </span>
+                </div>
+
                 <!-- Search assignable offices -->
                 <div class="mb-2 relative">
                   <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -217,17 +223,38 @@
                     class="block w-full pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs bg-white"
                   />
                 </div>
-                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-48 overflow-y-auto">
-                  <div v-if="searchedOffices.length === 0" class="text-xs text-slate-400 italic">
+
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-56 overflow-y-auto space-y-1.5">
+                  <div v-if="searchedOffices.length === 0" class="text-xs text-slate-400 italic py-2 text-center">
                     No matching offices found.
                   </div>
-                  <label v-for="office in searchedOffices" :key="office.id" class="flex items-center gap-2 mb-2 last:mb-0 cursor-pointer">
-                    <input type="checkbox" :value="office.id" v-model="form.office_ids" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
-                    <span class="text-sm text-slate-700">{{ office.name }}</span>
+
+                  <label 
+                    v-for="office in searchedOffices" 
+                    :key="office.id" 
+                    class="flex items-center justify-between p-2 rounded-lg transition-all cursor-pointer select-none"
+                    :class="isOfficeAssigned(office.id) ? 'bg-indigo-50/70 border border-indigo-200/80 shadow-2xs' : 'hover:bg-slate-100/60 border border-transparent'"
+                  >
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <input 
+                        type="checkbox" 
+                        :value="office.id" 
+                        v-model="form.office_ids" 
+                        class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                      >
+                      <span class="text-xs font-semibold truncate" :class="isOfficeAssigned(office.id) ? 'text-indigo-900 font-bold' : 'text-slate-700'">
+                        {{ office.name }}
+                      </span>
+                    </div>
+
+                    <span v-if="isOfficeAssigned(office.id)" class="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 bg-indigo-100/80 px-2 py-0.5 rounded shrink-0">
+                      Assigned
+                    </span>
                   </label>
                 </div>
-                <p v-if="!officeSearchQuery && filteredOffices.length > 20" class="mt-1.5 text-xs text-slate-400">
-                  Showing 20 of {{ filteredOffices.length }} offices. Search above to find more.
+
+                <p v-if="!officeSearchQuery && filteredOffices.length > searchedOffices.length" class="mt-1.5 text-xs text-slate-400">
+                  Showing {{ searchedOffices.length }} of {{ filteredOffices.length }} offices. Search above to find more.
                 </p>
               </div>
 
@@ -269,10 +296,36 @@ const {
 const searchQuery = ref('')
 const officeSearchQuery = ref('')
 
+const isOfficeAssigned = (officeId) => {
+  return form.value.office_ids && form.value.office_ids.includes(officeId)
+}
+
 const searchedOffices = computed(() => {
+  const assignedSet = new Set(form.value.office_ids || [])
   const query = officeSearchQuery.value.trim().toLowerCase()
-  if (!query) return filteredOffices.value.slice(0, 20)
-  return filteredOffices.value.filter(o => o.name.toLowerCase().includes(query))
+
+  const assigned = []
+  const unassigned = []
+
+  filteredOffices.value.forEach(office => {
+    if (assignedSet.has(office.id)) {
+      assigned.push(office)
+    } else {
+      unassigned.push(office)
+    }
+  })
+
+  assigned.sort((a, b) => a.name.localeCompare(b.name))
+  unassigned.sort((a, b) => a.name.localeCompare(b.name))
+
+  const combined = [...assigned, ...unassigned]
+
+  if (!query) {
+    const unassignedSlice = unassigned.slice(0, Math.max(20, 30 - assigned.length))
+    return [...assigned, ...unassignedSlice]
+  }
+
+  return combined.filter(o => o.name.toLowerCase().includes(query))
 })
 
 const paginationRange = computed(() => {

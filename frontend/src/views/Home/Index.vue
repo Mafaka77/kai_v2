@@ -50,7 +50,7 @@
             <div class="pl-4 border-l-4 border-emerald-200 mt-2">
               <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Web Portal</h3>
               <router-link to="/login" class="group block relative overflow-hidden rounded-2xl shadow-lg border border-slate-200/50 hover:shadow-2xl hover:border-emerald-300 transition-all duration-300 transform hover:-translate-y-1 bg-white p-2 max-w-sm">
-                <img src="/assets/images/homedashboard.png" class="w-full rounded-xl object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt="Dashboard" />
+                <img src="/assets/images/dashboard.png" class="w-full rounded-xl object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt="Dashboard" />
                 <div class="absolute inset-0 flex items-center justify-center bg-slate-900/10 opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-[2px]">
                   <div class="bg-white px-6 py-2 rounded-full font-bold text-emerald-600 shadow-xl flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                     Open Dashboard 

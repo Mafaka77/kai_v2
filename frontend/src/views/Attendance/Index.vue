@@ -136,7 +136,7 @@
           <thead>
             <tr>
               <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">User</th>
-              <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Office</th>
+              <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Designation</th>
               <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Sign In</th>
               <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Sign Out</th>
               <th scope="col" class="px-3 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
@@ -156,9 +156,9 @@
                 <div class="text-xs text-slate-500">{{ log.User?.mobile }}</div>
               </td>
 
-              <!-- Office -->
+              <!-- Designation -->
               <td class="px-3 py-4 whitespace-nowrap">
-                <div class="text-sm text-slate-600">{{ log.Office?.name || 'Unknown' }}</div>
+                <div class="text-sm text-slate-600 font-medium">{{ log.User?.designation || '—' }}</div>
               </td>
 
               <!-- Sign In -->
@@ -375,7 +375,7 @@ const exportToPDF = async () => {
     doc.text(`Total Records: ${records.length}`, 14, 46)
 
     // Table definition
-    const tableColumns = ['User', 'Mobile', 'Office', 'Sign In', 'Sign Out', 'Status']
+    const tableColumns = ['User', 'Mobile', 'Designation', 'Sign In', 'Sign Out', 'Status']
     const tableRows = records.map(log => {
       let signInStr = '—'
       if (log.type === 'absent') {
@@ -396,7 +396,7 @@ const exportToPDF = async () => {
       return [
         log.User?.full_name || 'Unknown',
         log.User?.mobile || '—',
-        log.Office?.name || '—',
+        log.User?.designation || '—',
         signInStr,
         signOutStr,
         log.type ? log.type.charAt(0).toUpperCase() + log.type.slice(1) : 'Unknown'

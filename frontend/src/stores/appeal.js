@@ -7,6 +7,8 @@ export const useAppealStore = defineStore('appeal', {
   state: () => ({
     currentTab: 'late_reason',
     appeals: [],
+    offices: [],
+    selectedOffice: 'All',
     searchQuery: '',
     statusFilter: 'All',
     loading: false,
@@ -40,6 +42,12 @@ export const useAppealStore = defineStore('appeal', {
       return this.fetchAppeals()
     },
 
+    setOfficeFilter(officeId) {
+      this.selectedOffice = officeId
+      this.pagination.page = 1
+      return this.fetchAppeals()
+    },
+
     async fetchAppeals() {
       this.loading = true
       try {
@@ -53,10 +61,15 @@ export const useAppealStore = defineStore('appeal', {
         if (this.statusFilter && this.statusFilter !== 'All') {
           params.append('status', this.statusFilter)
         }
+        if (this.selectedOffice && this.selectedOffice !== 'All') {
+          params.append('office_id', this.selectedOffice)
+        }
         const response = await api.get(`/appeals?${params.toString()}`)
-        console.log(response);
         if (response.data && response.data.status === 'success') {
-          this.appeals = response.data.data
+          this.appeals = response.data.data || []
+          if (response.data.offices) {
+            this.offices = response.data.offices
+          }
           if (response.data.counts) {
             this.pendingCount = response.data.counts.pending
             this.approvedCount = response.data.counts.approved

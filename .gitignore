@@ -1,13 +1,14 @@
 # Dependencies
 node_modules/
 frontend/node_modules/
-frontend/.env
+frontend/.envxw
 .pnpm-store/
 
-# Environment configuration
+# Environment & Secrets configuration
 .env
 .env.local
 .env.*.local
+firebase.json
 
 
 # User uploads & generated report files

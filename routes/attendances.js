@@ -6,4 +6,5 @@ module.exports = async function (fastify, opts) {
   fastify.get('/web/my-attendance/history', { preValidation: [fastify.authenticate] }, AttendanceController.myHistory);
   fastify.get('/web/attendances/user/:id/week', { preValidation: [fastify.authenticate, fastify.authorize(['Admin', 'Manager'])] }, AttendanceController.userWeek);
   fastify.get('/web/attendances/user/:id/history', { preValidation: [fastify.authenticate, fastify.authorize(['Admin', 'Manager'])] }, AttendanceController.userHistory);
+  fastify.get('/web/attendances/user/:id/export', { preValidation: [fastify.authenticate, fastify.authorize(['Admin', 'Manager'])] }, AttendanceController.exportUserHistory);
 }
