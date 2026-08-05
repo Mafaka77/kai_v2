@@ -1,4 +1,4 @@
-const { User, Office, District, Role } = require('../models');
+const { User, Office, District, Role, Device } = require('../models');
 const { Op } = require('sequelize');
 
 module.exports = {
@@ -35,12 +35,22 @@ module.exports = {
         distinct: true,
         order: [['id', 'ASC']]
       });
+
+      // Attach associated devices for the paginated user rows
+      const userIds = rows.map(u => u.id);
+      const devices = await Device.findAll({ where: { user_id: { [Op.in]: userIds } } });
+
+      const data = rows.map(user => {
+        const plainUser = user.toJSON();
+        plainUser.Devices = devices.filter(d => String(d.user_id) === String(user.id));
+        return plainUser;
+      });
       
       const totalPages = Math.ceil(count / limitNum);
       
       return {
         status: 'success',
-        data: rows,
+        data,
         pagination: {
           total: count,
           page: pageNum,

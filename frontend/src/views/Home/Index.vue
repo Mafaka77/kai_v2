@@ -8,7 +8,7 @@
       <div class="max-w-7xl mx-auto px-6 lg:px-8 relative z-10 pt-16">
         
         <!-- HERO SECTION -->
-        <section class="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+        <section id="home" class="scroll-mt-24 flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
           
           <!-- Left Column -->
           <div class="flex-1 flex flex-col gap-10 z-10">
@@ -146,7 +146,7 @@
         <div class="py-24"></div>
 
         <!-- FEATURES SECTION -->
-        <section id="feature" class="scroll-mt-24">
+        <section id="features" class="scroll-mt-24">
           <div class="text-center max-w-2xl mx-auto mb-16">
             <h2 class="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">Powerful Features</h2>
             <div class="h-1.5 w-24 bg-gradient-to-r from-cyan-400 to-indigo-500 rounded-full mx-auto mt-6"></div>
@@ -239,13 +239,65 @@
           </div>
         </section>
 
+        <!-- Divider -->
+        <div class="py-20"></div>
+
+        <!-- STATISTICS SECTION -->
+        <section id="statistics" class="scroll-mt-24">
+          <div class="text-center max-w-2xl mx-auto mb-12">
+            <span class="inline-flex items-center gap-2 px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full mb-3">
+              <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+              Live System Insights
+            </span>
+            <h2 class="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">System Statistics</h2>
+            <p class="text-sm text-slate-500 mt-2 font-medium">Real-time attendance statistics and office engagement across Government of Mizoram.</p>
+            <div class="h-1.5 w-24 bg-gradient-to-r from-cyan-400 to-indigo-500 rounded-full mx-auto mt-6"></div>
+          </div>
+
+          <!-- Attendance Chart -->
+          <OfficeAttendanceChart 
+            title="Office-wise Attendance Breakdown" 
+            :subtitle="`Present, Late, and Absent attendance analytics (${publicStats.date_label || 'Today'})`" 
+            mode="admin" 
+            :chartData="publicStats.office_attendance_chart || []" 
+          />
+        </section>
+
       </div>
     </div>
   </FrontLayout>
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
+import api from '../../plugins/axios'
 import FrontLayout from '../../layouts/FrontLayout.vue'
+import OfficeAttendanceChart from '../../components/dashboard/OfficeAttendanceChart.vue'
+
+const publicStats = ref({
+  users: 0,
+  offices: 0,
+  active_offices: 0,
+  districts: 0,
+  attendances_today: 0,
+  date_label: 'Today',
+  office_attendance_chart: []
+})
+
+const fetchPublicStats = async () => {
+  try {
+    const response = await api.get('/public-stats')
+    if (response.data && response.data.status === 'success') {
+      publicStats.value = response.data.data
+    }
+  } catch (error) {
+    console.error('Failed to fetch public statistics', error)
+  }
+}
+
+onMounted(() => {
+  fetchPublicStats()
+})
 </script>
 
 <style scoped>

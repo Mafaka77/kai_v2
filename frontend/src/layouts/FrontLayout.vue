@@ -29,10 +29,11 @@
 
         <!-- Desktop Navigation -->
         <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-700">
-          <a href="#home" class="hover:text-[#191C51] transition-colors">Home</a>
-          <a href="#userguide" class="hover:text-[#191C51] transition-colors">User Guide</a>
-          <a href="#features" class="hover:text-[#191C51] transition-colors">Features</a>
-          <a href="#about" class="hover:text-[#191C51] transition-colors">About</a>
+          <router-link to="/#home" class="hover:text-[#191C51] transition-colors">Home</router-link>
+          <router-link to="/#userguide" class="hover:text-[#191C51] transition-colors">User Guide</router-link>
+          <router-link to="/#features" class="hover:text-[#191C51] transition-colors">Features</router-link>
+          <router-link to="/#about" class="hover:text-[#191C51] transition-colors">About</router-link>
+          <router-link to="/#statistics" class="hover:text-[#191C51] transition-colors">Statistics</router-link>
         </nav>
 
         <!-- Right Action Buttons -->
@@ -96,9 +97,9 @@
           <!-- Column 3: Quick Links -->
           <div class="flex flex-col md:items-end justify-center space-y-2">
             <div class="flex items-center gap-4 font-semibold text-slate-300">
-              <a href="#" class="hover:text-cyan-300 transition-colors">Privacy Policy</a>
+              <router-link to="/privacy-policy" class="hover:text-cyan-300 transition-colors">Privacy Policy</router-link>
               <span>•</span>
-              <a href="#" class="hover:text-cyan-300 transition-colors">Terms & Conditions</a>
+              <router-link to="/terms-conditions" class="hover:text-cyan-300 transition-colors">Terms & Conditions</router-link>
             </div>
           </div>
 

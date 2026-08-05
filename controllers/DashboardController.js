@@ -74,22 +74,30 @@ module.exports = {
           })
         ]);
 
-        // Fetch ALL offices with total assigned staff count
+        // Fetch ALL offices with total assigned ACTIVE staff count
         const allOffices = await Office.findAll({
           attributes: [
             'id',
             'name',
-            [sequelize.literal('(SELECT COUNT(*) FROM user_offices WHERE user_offices.office_id = Office.id)'), 'total_staff']
+            [sequelize.literal('(SELECT COUNT(*) FROM user_offices INNER JOIN users ON users.id = user_offices.user_id WHERE user_offices.office_id = Office.id AND users.deleted_at IS NULL)'), 'total_staff']
           ],
           raw: true
         });
 
-        // Group attendance by office_id AND type (present vs late)
+        // Group attendance by office_id AND type (present vs late) for active users only
         const attendanceBreakdown = await Attendance.findAll({
           attributes: [
             'office_id',
             'type',
-            [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+            [sequelize.fn('COUNT', sequelize.col('Attendance.id')), 'count']
+          ],
+          include: [
+            {
+              model: User,
+              required: true,
+              attributes: [],
+              where: { deleted_at: null }
+            }
           ],
           where: {
             signin_at: { [Op.gte]: statsStartDate, [Op.lt]: statsEndDate },
@@ -164,15 +172,23 @@ module.exports = {
           periodAttendances,
           pendingAppeals
         ] = await Promise.all([
-          Attendance.count({ where: { ...officeWhere, signin_at: { [Op.gte]: statsStartDate, [Op.lt]: statsEndDate } } }),
-          AppealAttendance.count({ where: { ...officeWhere, status: 'Submitted' } })
+          Attendance.count({
+            where: { ...officeWhere, signin_at: { [Op.gte]: statsStartDate, [Op.lt]: statsEndDate } },
+            include: [{ model: User, required: true, where: { deleted_at: null } }]
+          }),
+          AppealAttendance.count({
+            where: { ...officeWhere, status: 'Submitted' },
+            include: [{ model: User, required: true, where: { deleted_at: null } }]
+          })
         ]);
 
-        // Fetch employees in manager's office
+        // Fetch active employees in manager's office
         let officeUsers = [];
         if (officeIds.length) {
           officeUsers = await User.findAll({
             attributes: ['id', 'full_name', 'designation', 'mobile'],
+            where: { deleted_at: null },
+            paranoid: true,
             include: [
               {
                 model: Office,
@@ -462,6 +478,135 @@ module.exports = {
       return { status: 'success', data };
     } catch (error) {
       console.error('Dashboard stats error:', error);
+      return reply.code(500).send({ status: 'error', message: error.message });
+    }
+  },
+
+  publicStats: async (request, reply) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      let statsStartDate = today;
+      let statsEndDate = tomorrow;
+      let dateLabel = "Today";
+
+      const countToday = await Attendance.count({
+        where: { signin_at: { [Op.gte]: today, [Op.lt]: tomorrow } }
+      });
+
+      if (countToday === 0) {
+        const latestAttendance = await Attendance.findOne({
+          order: [['signin_at', 'DESC']]
+        });
+
+        if (latestAttendance && latestAttendance.signin_at) {
+          const latestDate = new Date(latestAttendance.signin_at);
+          latestDate.setHours(0, 0, 0, 0);
+
+          statsStartDate = latestDate;
+          const nextDay = new Date(latestDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          statsEndDate = nextDay;
+
+          const isYesterday = latestDate.getTime() === (today.getTime() - 86400000);
+          dateLabel = isYesterday ? "Yesterday" : `${latestDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} (Last Working Day)`;
+        }
+      }
+
+      const [totalUsers, totalOffices, totalDistricts, periodAttendances] = await Promise.all([
+        User.count(),
+        Office.count(),
+        District.count(),
+        Attendance.count({ where: { signin_at: { [Op.gte]: statsStartDate, [Op.lt]: statsEndDate } } })
+      ]);
+
+      const allOffices = await Office.findAll({
+        attributes: [
+          'id',
+          'name',
+          [sequelize.literal('(SELECT COUNT(*) FROM user_offices INNER JOIN users ON users.id = user_offices.user_id WHERE user_offices.office_id = Office.id AND users.deleted_at IS NULL)'), 'total_staff']
+        ],
+        raw: true
+      });
+
+      const attendanceBreakdown = await Attendance.findAll({
+        attributes: [
+          'office_id',
+          'type',
+          [sequelize.fn('COUNT', sequelize.col('Attendance.id')), 'count']
+        ],
+        include: [
+          {
+            model: User,
+            required: true,
+            attributes: [],
+            where: { deleted_at: null }
+          }
+        ],
+        where: {
+          signin_at: { [Op.gte]: statsStartDate, [Op.lt]: statsEndDate },
+          office_id: { [Op.ne]: null }
+        },
+        group: ['office_id', 'type'],
+        raw: true
+      });
+
+      const officeStatsMap = {};
+      let activeOfficesCount = 0;
+
+      attendanceBreakdown.forEach(item => {
+        const offId = item.office_id;
+        if (!officeStatsMap[offId]) {
+          officeStatsMap[offId] = { present: 0, late: 0, total_signin: 0 };
+        }
+        const cnt = parseInt(item.count || 0);
+        officeStatsMap[offId].total_signin += cnt;
+        if (item.type === 'late') {
+          officeStatsMap[offId].late += cnt;
+        } else {
+          officeStatsMap[offId].present += cnt;
+        }
+      });
+
+      Object.keys(officeStatsMap).forEach(offId => {
+        if (officeStatsMap[offId].total_signin > 0) activeOfficesCount++;
+      });
+
+      const officeAttendanceChart = allOffices.map(off => {
+        const stats = officeStatsMap[off.id] || { present: 0, late: 0, total_signin: 0 };
+        const totalStaff = parseInt(off.total_staff || 0);
+        const absent = Math.max(0, totalStaff - stats.total_signin);
+
+        return {
+          office_id: off.id,
+          office_name: off.name,
+          present: stats.present,
+          late: stats.late,
+          absent: absent,
+          total_staff: totalStaff,
+          count: stats.total_signin
+        };
+      });
+
+      officeAttendanceChart.sort((a, b) => b.count - a.count);
+
+      return {
+        status: 'success',
+        data: {
+          users: totalUsers,
+          offices: totalOffices,
+          active_offices: activeOfficesCount,
+          districts: totalDistricts,
+          attendances_today: periodAttendances,
+          date_label: dateLabel,
+          office_attendance_chart: officeAttendanceChart
+        }
+      };
+    } catch (error) {
+      console.error('Public stats error:', error);
       return reply.code(500).send({ status: 'error', message: error.message });
     }
   }

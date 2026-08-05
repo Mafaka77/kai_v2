@@ -13,6 +13,7 @@ export const useUserStore = defineStore('user', {
     showModal: false,
     isEditing: false,
     saving: false,
+    editingDevices: [],
     form: {
       id: null,
       full_name: '',
@@ -75,6 +76,7 @@ export const useUserStore = defineStore('user', {
     openModal(user = null) {
       if (user) {
         this.isEditing = true
+        this.editingDevices = user.Devices ? JSON.parse(JSON.stringify(user.Devices)) : []
         this.form = {
           id: user.id,
           full_name: user.full_name || '',
@@ -86,6 +88,7 @@ export const useUserStore = defineStore('user', {
         }
       } else {
         this.isEditing = false
+        this.editingDevices = []
         this.form = {
           id: null,
           full_name: '',
@@ -101,6 +104,58 @@ export const useUserStore = defineStore('user', {
 
     closeModal() {
       this.showModal = false
+    },
+
+    async toggleDevice(deviceId) {
+      const toast = useNotificationStore()
+      try {
+        const response = await api.put(`/accounts/devices/${deviceId}/toggle`)
+        if (response.data && response.data.status === 'success') {
+          const updatedDevice = response.data.data
+          const idx = this.editingDevices.findIndex(d => d.id === deviceId)
+          if (idx !== -1) {
+            this.editingDevices[idx].active = updatedDevice.active
+          }
+          toast.success(response.data.message || `Device ${updatedDevice.active ? 'enabled' : 'disabled'}`)
+          await this.fetchUsers()
+          return true
+        }
+        toast.error(response.data?.message || 'Failed to toggle device')
+        return false
+      } catch (error) {
+        console.error('Failed to toggle device', error)
+        toast.error(error.response?.data?.message || 'Error toggling device status')
+        return false
+      }
+    },
+
+    async deleteDevice(deviceId) {
+      const dialog = useDialogStore()
+      const toast = useNotificationStore()
+      const ok = await dialog.confirm({
+        title: 'Unlink Device',
+        message: 'Are you sure you want to unlink and remove this device from the user account?',
+        type: 'danger',
+        confirmText: 'Unlink Device'
+      })
+
+      if (!ok) return false
+
+      try {
+        const response = await api.delete(`/accounts/devices/${deviceId}`)
+        if (response.data && response.data.status === 'success') {
+          this.editingDevices = this.editingDevices.filter(d => d.id !== deviceId)
+          toast.success(response.data.message || 'Device unlinked successfully')
+          await this.fetchUsers()
+          return true
+        }
+        toast.error(response.data?.message || 'Failed to unlink device')
+        return false
+      } catch (error) {
+        console.error('Failed to unlink device', error)
+        toast.error(error.response?.data?.message || 'Error unlinking device')
+        return false
+      }
     },
 
     async saveUser() {
@@ -162,7 +217,6 @@ export const useUserStore = defineStore('user', {
       } catch (error) {
         console.error(`Failed to ${action} user`, error)
         toast.error(error.response?.data?.message || `An error occurred while trying to ${action} user`)
-        return false
       }
     }
   }

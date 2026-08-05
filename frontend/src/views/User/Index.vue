@@ -258,6 +258,82 @@
                 </p>
               </div>
 
+              <!-- Registered Devices Section (Only on Edit) -->
+              <div v-if="isEditing" class="mb-6 border-t border-slate-100 pt-5">
+                <div class="flex items-center justify-between mb-2">
+                  <div>
+                    <label class="block text-sm font-semibold text-slate-800">Bound Mobile Devices</label>
+                    <p class="text-xs text-slate-400">Enable or disable registered mobile hardware for attendance punching.</p>
+                  </div>
+                  <span v-if="editingDevices && editingDevices.length > 0" class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                    {{ editingDevices.length }} device(s)
+                  </span>
+                </div>
+
+                <div v-if="!editingDevices || editingDevices.length === 0" class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-400 font-medium">
+                  No registered mobile devices bound to this account.
+                </div>
+
+                <div v-else class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  <div 
+                    v-for="device in editingDevices" 
+                    :key="device.id" 
+                    class="p-3 bg-slate-50 border rounded-xl flex items-center justify-between gap-3 transition-colors"
+                    :class="device.active ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200'"
+                  >
+                    <div class="flex items-center gap-3 min-w-0">
+                      <div 
+                        class="w-8 h-8 rounded-lg flex items-center justify-center text-xs shrink-0"
+                        :class="device.active ? 'bg-emerald-100 text-emerald-700 font-bold' : 'bg-slate-200 text-slate-600'"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+
+                      <div class="min-w-0">
+                        <div class="text-xs font-bold text-slate-800 truncate flex items-center gap-2">
+                          <span>{{ device.name || 'Mobile Hardware' }}</span>
+                          <span 
+                            class="px-1.5 py-0.2 text-[9px] font-extrabold uppercase rounded"
+                            :class="device.active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'"
+                          >
+                            {{ device.active ? 'Enabled' : 'Disabled' }}
+                          </span>
+                        </div>
+                        <div class="text-[11px] font-mono text-slate-400 truncate mt-0.5">
+                          UID: {{ device.uid || 'N/A' }}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 shrink-0">
+                      <!-- Toggle Button -->
+                      <button 
+                        type="button"
+                        @click="toggleDevice(device.id)"
+                        class="px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer shadow-2xs"
+                        :class="device.active ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100' : 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'"
+                      >
+                        {{ device.active ? 'Disable Device' : 'Enable Device' }}
+                      </button>
+
+                      <!-- Unlink Button -->
+                      <button 
+                        type="button"
+                        @click="deleteDevice(device.id)"
+                        class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        title="Unlink device from user"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                 <button type="button" @click="closeModal" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                   Cancel
@@ -289,6 +365,7 @@ const {
   showModal,
   isEditing,
   saving,
+  editingDevices,
   form,
   filteredOffices
 } = storeToRefs(store)
@@ -373,6 +450,8 @@ const saveUser = async () => {
 }
 
 const toggleUserStatus = (id, action) => store.toggleUserStatus(id, action)
+const toggleDevice = (id) => store.toggleDevice(id)
+const deleteDevice = (id) => store.deleteDevice(id)
 
 onMounted(() => {
   fetchUsers()

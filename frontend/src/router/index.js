@@ -20,12 +20,24 @@ import AttendanceAppealIndex from '../views/AttendanceAppeal/Index.vue'
 import HomeIndex from '../views/Home/Index.vue'
 import CalendarIndex from '../views/Calendar/Index.vue'
 import NotificationIndex from '../views/Notification/Index.vue'
+import PrivacyPolicy from '../views/PrivacyPolicy.vue'
+import TermsConditions from '../views/TermsConditions.vue'
 
 const routes = [
   {
     path: '/',
     name: 'Home',
     component: HomeIndex
+  },
+  {
+    path: '/privacy-policy',
+    name: 'PrivacyPolicy',
+    component: PrivacyPolicy
+  },
+  {
+    path: '/terms-conditions',
+    name: 'TermsConditions',
+    component: TermsConditions
   },
   {
     path: '/login',
@@ -150,7 +162,23 @@ const routes = [
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (to.hash) {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            el: to.hash,
+            behavior: 'smooth'
+          })
+        }, 150)
+      })
+    }
+    if (savedPosition) {
+      return savedPosition
+    }
+    return { top: 0 }
+  }
 })
 
 router.beforeEach((to, from, next) => {
