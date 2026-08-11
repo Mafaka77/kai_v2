@@ -206,6 +206,7 @@ module.exports = {
       const body  = request.body || {};
       const query = request.query || {};
       const reason = body.reason || query.reason;
+      const userId = request.user.id;
 
       if (!reason) {
         return reply.send({
@@ -233,7 +234,7 @@ module.exports = {
 
       const appeal = await AppealAttendance.create({
         attendance_id: attendance.id,
-        user_id:       attendance.user_id,
+        user_id:      userId,
         office_id:     attendance.office_id,
         start_date:    attendance.signin_at,
         type:          'left_early',
