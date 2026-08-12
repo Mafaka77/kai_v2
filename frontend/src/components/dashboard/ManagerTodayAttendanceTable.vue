@@ -11,7 +11,7 @@
         </p>
       </div>
 
-      <!-- Search & Filters -->
+      <!-- Search & Refresh -->
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
         <!-- Search Box -->
         <div class="relative w-full sm:w-48 lg:w-64">
@@ -25,17 +25,6 @@
             class="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
           />
         </div>
-
-        <!-- Status Filter -->
-        <select 
-          v-model="statusFilter"
-          class="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-600 font-medium cursor-pointer"
-        >
-          <option value="All">All Statuses</option>
-          <option value="Present">Present</option>
-          <option value="Late">Late</option>
-          <option value="Absent">Absent</option>
-        </select>
 
         <!-- Refresh Button -->
         <button 
@@ -54,6 +43,64 @@
           </svg>
         </button>
       </div>
+    </div>
+
+    <!-- Filter Buttons / Metrics -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-1">
+      <button 
+        @click="statusFilter = 'All'"
+        :class="[
+          'px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0',
+          statusFilter === 'All' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+        ]"
+      >
+        <span>All Staff</span>
+        <span :class="['px-1.5 py-0.2 rounded-md text-[11px]', statusFilter === 'All' ? 'bg-indigo-500/40 text-white' : 'bg-slate-100 text-slate-700']">
+          {{ summary.total || 0 }}
+        </span>
+      </button>
+
+      <button 
+        @click="statusFilter = 'Present'"
+        :class="[
+          'px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0',
+          statusFilter === 'Present' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+        ]"
+      >
+        <span class="w-2 h-2 rounded-full bg-emerald-500" v-if="statusFilter !== 'Present'"></span>
+        <span>Present</span>
+        <span :class="['px-1.5 py-0.2 rounded-md text-[11px]', statusFilter === 'Present' ? 'bg-emerald-500/40 text-white' : 'bg-emerald-50 text-emerald-700']">
+          {{ summary.present || 0 }}
+        </span>
+      </button>
+
+      <button 
+        @click="statusFilter = 'Late'"
+        :class="[
+          'px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0',
+          statusFilter === 'Late' ? 'bg-amber-500 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+        ]"
+      >
+        <span class="w-2 h-2 rounded-full bg-amber-500" v-if="statusFilter !== 'Late'"></span>
+        <span>Late</span>
+        <span :class="['px-1.5 py-0.2 rounded-md text-[11px]', statusFilter === 'Late' ? 'bg-amber-400/40 text-white' : 'bg-amber-50 text-amber-700']">
+          {{ summary.late || 0 }}
+        </span>
+      </button>
+
+      <button 
+        @click="statusFilter = 'Absent'"
+        :class="[
+          'px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0',
+          statusFilter === 'Absent' ? 'bg-rose-600 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+        ]"
+      >
+        <span class="w-2 h-2 rounded-full bg-rose-500" v-if="statusFilter !== 'Absent'"></span>
+        <span>Absent</span>
+        <span :class="['px-1.5 py-0.2 rounded-md text-[11px]', statusFilter === 'Absent' ? 'bg-rose-500/40 text-white' : 'bg-rose-50 text-rose-700']">
+          {{ summary.absent || 0 }}
+        </span>
+      </button>
     </div>
 
     <!-- Attendance Table -->
@@ -218,6 +265,21 @@ const search = ref('')
 const statusFilter = ref('All')
 const currentPage = ref(1)
 const pageSize = ref(10)
+
+const summary = computed(() => {
+  const counts = {
+    total: props.users.length,
+    present: 0,
+    late: 0,
+    absent: 0
+  }
+  props.users.forEach(u => {
+    if (u.status === 'Present') counts.present++
+    else if (u.status === 'Late') counts.late++
+    else if (u.status === 'Absent') counts.absent++
+  })
+  return counts
+})
 
 const filteredUsers = computed(() => {
   let list = [...props.users]
