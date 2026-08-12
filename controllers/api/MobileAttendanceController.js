@@ -142,32 +142,35 @@ module.exports = {
 
       const userId = request.user.id;
 
-      // Find office by user assignment + QR code
       const { QrCode, UserOffice } = require('../../models');
 
-      // Get user's assigned offices
-      const assignedOffices = await Office.findAll({
-        include: [
-          {
-            model:    User,
-            as:       'Users',
-            where:    { id: userId },
-            required: true
-          },
-          {
-            model:    QrCode,
-            required: true,
-            where:    { code }
-          }
-        ]
+      // Find office by scanned QR code
+      const qrCode = await QrCode.findOne({
+        where: { code },
+        include: [{ model: Office }]
       });
 
-      const office = assignedOffices[0] || null;
-
-      if (!office) {
+      if (!qrCode || !qrCode.Office) {
         return reply.send({
           status:  ApiResponseType.INVALID_OFFICE,
           message: 'The QR does not match your registered office QR'
+        });
+      }
+
+      const office = qrCode.Office;
+
+      // Verify that the user is assigned to this specific office
+      const isAssigned = await UserOffice.findOne({
+        where: {
+          user_id:   userId,
+          office_id: office.id
+        }
+      });
+
+      if (!isAssigned) {
+        return reply.send({
+          status:  ApiResponseType.INVALID_OFFICE,
+          message: 'You are not assigned to this office'
         });
       }
 
@@ -265,11 +268,14 @@ module.exports = {
         return reply.code(403).send({ status: 'error', message: 'Unauthorized' });
       }
 
-      // Look up user's assigned office (matching Laravel $office = Office::whereHas('users', ...)->first())
-      const userWithOffice = await User.findByPk(request.user.id, {
-        include: [{ model: Office, as: 'Offices' }]
-      });
-      const office = userWithOffice?.Offices?.[0] || await Office.findByPk(attendance.office_id);
+      // Fetch the specific office where the user signed in
+      let office = await Office.findByPk(attendance.office_id);
+      if (!office) {
+        const userWithOffice = await User.findByPk(request.user.id, {
+          include: [{ model: Office, as: 'Offices' }]
+        });
+        office = userWithOffice?.Offices?.[0] || null;
+      }
 
       if (!office) {
         return reply.send({
