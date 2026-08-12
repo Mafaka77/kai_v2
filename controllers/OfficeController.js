@@ -54,9 +54,9 @@ module.exports = {
   
   store: async (request, reply) => {
     try {
-      const { name, district_id, lat, lng, radius, grace_period, start_time, close_time } = request.body;
+      const { name, district_id, lat, lng, lat2, lng2, radius, grace_period, start_time, close_time } = request.body;
       const office = await Office.create({
-        name, district_id, lat, lng, radius, grace_period, start_time, close_time
+        name, district_id, lat, lng, lat2: lat2 || null, lng2: lng2 || null, radius, grace_period, start_time, close_time
       });
       return { status: 'success', data: office, message: 'Office created successfully' };
     } catch (error) {
@@ -73,7 +73,11 @@ module.exports = {
         return reply.code(404).send({ status: 'error', message: 'Office not found' });
       }
       
-      await office.update(request.body);
+      const payload = { ...request.body };
+      if ('lat2' in payload) payload.lat2 = payload.lat2 || null;
+      if ('lng2' in payload) payload.lng2 = payload.lng2 || null;
+
+      await office.update(payload);
       return { status: 'success', data: office, message: 'Office updated successfully' };
     } catch (error) {
       return reply.code(400).send({ status: 'error', message: error.message });
