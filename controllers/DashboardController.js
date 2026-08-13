@@ -361,7 +361,7 @@ module.exports = {
             end_date: { [Op.gte]: todayStr }
           }
         });
-
+        console.log(employeesOnLeaveCount);
         // Fetch submitted device change requests for manager's office employees
         let pendingDevicesRaw = [];
         let pendingDevicesCount = 0;

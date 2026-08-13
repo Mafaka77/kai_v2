@@ -24,6 +24,22 @@ module.exports = {
         return reply.code(404).send({ message: 'Mobile No. not found' });
       }
 
+      // Check if duplicate leave request already exists for this user and date range
+      const existingLeave = await Attendance.findOne({
+        where: {
+          user_id: user.id,
+          start_date,
+          end_date
+        }
+      });
+
+      if (existingLeave) {
+        return reply.code(200).send({
+          message: 'Leave request already exists',
+          data:    existingLeave
+        });
+      }
+
       // Find user's assigned office
       const userWithOffice = await User.findByPk(user.id, {
         include: [{ model: Office, as: 'Offices' }]
