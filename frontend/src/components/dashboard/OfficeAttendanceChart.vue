@@ -68,6 +68,23 @@
           </button>
         </div>
 
+        <!-- Export PDF Button -->
+        <button 
+          @click="exportToPDF"
+          :disabled="isExporting"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 border border-slate-200 hover:border-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs disabled:opacity-50"
+          :title="`Export ${filterMode === 'active' ? 'With Sign-ins (' + activeOfficesCount + ')' : filterMode === 'inactive' ? 'No Sign-ins (' + inactiveOfficesCount + ')' : 'All (' + chartData.length + ')'} to PDF`"
+        >
+          <svg v-if="isExporting" class="w-3.5 h-3.5 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <svg v-else class="w-3.5 h-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+          <span>Export PDF</span>
+        </button>
+
         <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg shrink-0">
           <span v-if="searchQuery" class="text-indigo-600 font-bold">{{ filteredData.length }} result(s)</span>
           <span v-else class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
@@ -75,7 +92,23 @@
         </span>
       </div>
 
-      <div v-else>
+      <div v-else class="flex items-center gap-2 flex-wrap">
+        <button 
+          @click="exportToPDF"
+          :disabled="isExporting"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 border border-slate-200 hover:border-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs disabled:opacity-50"
+          title="Export Attendance to PDF"
+        >
+          <svg v-if="isExporting" class="w-3.5 h-3.5 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <svg v-else class="w-3.5 h-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+          <span>Export PDF</span>
+        </button>
+
         <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg shrink-0">
           <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
           Weekly Breakdown (Mon – Today)
@@ -91,6 +124,8 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as echarts from 'echarts'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const props = defineProps({
   title: { type: String, default: 'Office Attendance' },
@@ -103,6 +138,7 @@ const chartRef = ref(null)
 let chartInstance = null
 const filterMode = ref('all') // 'all' | 'active' | 'inactive'
 const searchQuery = ref('')
+const isExporting = ref(false)
 
 const activeOfficesCount = computed(() => {
   return props.chartData.filter(item => item.count > 0).length
@@ -130,6 +166,293 @@ const filteredData = computed(() => {
 
   return list
 })
+
+const exportToPDF = () => {
+  if (isExporting.value) return
+  isExporting.value = true
+
+  try {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    })
+
+    const currentDateStr = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
+    if (props.mode === 'admin') {
+      const isFilterActive = filterMode.value === 'active'
+      const isFilterInactive = filterMode.value === 'inactive'
+      const isFilterAll = filterMode.value === 'all'
+
+      let activeList = props.chartData.filter(item => item.count > 0)
+      let inactiveList = props.chartData.filter(item => !item.count || item.count === 0)
+
+      if (searchQuery.value.trim()) {
+        const q = searchQuery.value.trim().toLowerCase()
+        activeList = activeList.filter(item => item.office_name && item.office_name.toLowerCase().includes(q))
+        inactiveList = inactiveList.filter(item => item.office_name && item.office_name.toLowerCase().includes(q))
+      }
+
+      // Title, sub-label and filename based on current filter selection
+      let reportTitle = props.title || 'Statewide Office Attendance Report'
+      let filterLabel = 'All Offices'
+      let filenamePrefix = 'office_attendance_all'
+
+      if (isFilterActive) {
+        reportTitle += ' — With Sign-ins'
+        filterLabel = `With Sign-ins (${activeList.length})`
+        filenamePrefix = 'offices_with_signins'
+      } else if (isFilterInactive) {
+        reportTitle += ' — No Sign-ins'
+        filterLabel = `No Sign-ins (${inactiveList.length})`
+        filenamePrefix = 'offices_no_signins'
+      }
+
+      // Header Banner
+      doc.setFillColor(79, 70, 229) // Indigo 600
+      doc.rect(0, 0, 210, 24, 'F')
+
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(13)
+      doc.text(reportTitle, 14, 11)
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setTextColor(224, 231, 255)
+      doc.text(`Generated: ${currentDateStr} | Filter: ${filterLabel}${searchQuery.value.trim() ? ` (Search: "${searchQuery.value.trim()}")` : ''}`, 14, 18)
+
+      // Summary KPI Section
+      doc.setTextColor(30, 41, 59)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text('Attendance Overview Summary', 14, 32)
+
+      const totalOffices = props.chartData.length
+      const totalStaff = props.chartData.reduce((sum, item) => sum + (parseInt(item.total_staff) || 0), 0)
+      const totalPresent = props.chartData.reduce((sum, item) => sum + (parseInt(item.present) || 0), 0)
+      const totalLate = props.chartData.reduce((sum, item) => sum + (parseInt(item.late) || 0), 0)
+      const totalSignins = totalPresent + totalLate
+
+      // Metrics Summary Table
+      autoTable(doc, {
+        startY: 35,
+        head: [['Total System Offices', 'With Sign-ins', 'No Sign-ins', 'Total Staff', 'Total Sign-ins (Present / Late)']],
+        body: [[
+          `${totalOffices}`,
+          `${activeOfficesCount.value} (${totalOffices ? Math.round((activeOfficesCount.value / totalOffices) * 100) : 0}%)`,
+          `${inactiveOfficesCount.value} (${totalOffices ? Math.round((inactiveOfficesCount.value / totalOffices) * 100) : 0}%)`,
+          `${totalStaff}`,
+          `${totalSignins} (${totalPresent} / ${totalLate})`
+        ]],
+        theme: 'grid',
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [51, 65, 85],
+          fontStyle: 'bold',
+          fontSize: 8,
+          halign: 'center'
+        },
+        bodyStyles: {
+          fontSize: 9,
+          fontStyle: 'bold',
+          textColor: [15, 23, 42],
+          halign: 'center',
+          cellPadding: 3
+        }
+      })
+
+      let currentY = doc.lastAutoTable.finalY + 9
+
+      // Section 1: Offices With Sign-ins (Rendered for 'all' or 'active')
+      if (isFilterAll || isFilterActive) {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(11)
+        doc.setTextColor(16, 185, 129) // Emerald 600
+        doc.text(
+          isFilterAll ? `1. Offices With Sign-ins (${activeList.length})` : `Offices With Sign-ins (${activeList.length})`,
+          14,
+          currentY
+        )
+
+        const activeRows = activeList.map((item, index) => {
+          const staff = parseInt(item.total_staff) || 0
+          const present = parseInt(item.present) || 0
+          const late = parseInt(item.late) || 0
+          const absent = parseInt(item.absent) || 0
+          const total = present + late
+          const pct = staff > 0 ? `${Math.round((total / staff) * 100)}%` : '—'
+          return [
+            index + 1,
+            item.office_name || '—',
+            staff,
+            present,
+            late,
+            absent,
+            total,
+            pct
+          ]
+        })
+
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [['#', 'Office Name', 'Total Staff', 'Present', 'Late', 'Absent', 'Total Sign-ins', 'Turnout %']],
+          body: activeRows.length ? activeRows : [['—', 'No offices with sign-ins recorded', '—', '—', '—', '—', '—', '—']],
+          theme: 'striped',
+          headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold' },
+          styles: { fontSize: 8, cellPadding: 2.2 },
+          columnStyles: {
+            0: { cellWidth: 10, halign: 'center' },
+            1: { cellWidth: 55 },
+            2: { cellWidth: 20, halign: 'center' },
+            3: { cellWidth: 18, halign: 'center' },
+            4: { cellWidth: 18, halign: 'center' },
+            5: { cellWidth: 18, halign: 'center' },
+            6: { cellWidth: 25, halign: 'center' },
+            7: { cellWidth: 20, halign: 'center' }
+          }
+        })
+
+        currentY = doc.lastAutoTable.finalY + 10
+      }
+
+      // Section 2: Offices With No Sign-ins (Rendered for 'all' or 'inactive')
+      if (isFilterAll || isFilterInactive) {
+        if (isFilterAll && currentY > 255) {
+          doc.addPage()
+          currentY = 15
+        }
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(11)
+        doc.setTextColor(225, 29, 72) // Rose 600
+        doc.text(
+          isFilterAll ? `2. Offices With No Sign-ins (${inactiveList.length})` : `Offices With No Sign-ins (${inactiveList.length})`,
+          14,
+          currentY
+        )
+
+        const inactiveRows = inactiveList.map((item, index) => {
+          const staff = parseInt(item.total_staff) || 0
+          return [
+            index + 1,
+            item.office_name || '—',
+            staff,
+            '0 Sign-ins Recorded'
+          ]
+        })
+
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [['#', 'Office Name', 'Total Staff', 'Status']],
+          body: inactiveRows.length ? inactiveRows : [['—', 'No offices without sign-ins recorded', '—', 'Active']],
+          theme: 'striped',
+          headStyles: { fillColor: [225, 29, 72], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold' },
+          styles: { fontSize: 8, cellPadding: 2.2 },
+          columnStyles: {
+            0: { cellWidth: 12, halign: 'center' },
+            1: { cellWidth: 95 },
+            2: { cellWidth: 35, halign: 'center' },
+            3: { cellWidth: 42, halign: 'center' }
+          }
+        })
+      }
+
+      // Page numbers footer
+      const pageCount = doc.internal.getNumberOfPages()
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.setTextColor(148, 163, 184)
+        doc.text(
+          `Page ${i} of ${pageCount} — Generated via KAI Attendance System`,
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() - 7,
+          { align: 'center' }
+        )
+      }
+
+      doc.save(`${filenamePrefix}_${new Date().toISOString().split('T')[0]}.pdf`)
+    } else {
+      // Manager mode: Weekly Employee Breakdown PDF
+      doc.setFillColor(79, 70, 229)
+      doc.rect(0, 0, 210, 24, 'F')
+
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(14)
+      doc.text(props.title || 'Weekly Employee Attendance Breakdown', 14, 11)
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setTextColor(224, 231, 255)
+      doc.text(`Generated: ${currentDateStr} | Monday – Today`, 14, 18)
+
+      const empRows = props.chartData.map((item, index) => {
+        const present = parseInt(item.present) || 0
+        const late = parseInt(item.late) || 0
+        const absent = parseInt(item.absent) || 0
+        const total = present + late
+        const totalDays = item.working_days || (present + late + absent) || 5
+        const rate = totalDays > 0 ? `${Math.round((total / totalDays) * 100)}%` : '—'
+        return [
+          index + 1,
+          item.employee_name || 'Staff',
+          `${present} days`,
+          `${late} days`,
+          `${absent} days`,
+          rate
+        ]
+      })
+
+      autoTable(doc, {
+        startY: 32,
+        head: [['#', 'Employee Name', 'Present Days', 'Late Days', 'Absent Days', 'Attendance Rate']],
+        body: empRows.length ? empRows : [['—', 'No employee data recorded', '—', '—', '—', '—']],
+        theme: 'striped',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 2.5 },
+        columnStyles: {
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 70 },
+          2: { cellWidth: 25, halign: 'center' },
+          3: { cellWidth: 25, halign: 'center' },
+          4: { cellWidth: 25, halign: 'center' },
+          5: { cellWidth: 27, halign: 'center' }
+        }
+      })
+
+      const pageCount = doc.internal.getNumberOfPages()
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.setTextColor(148, 163, 184)
+        doc.text(
+          `Page ${i} of ${pageCount} — Generated via KAI Attendance System`,
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() - 7,
+          { align: 'center' }
+        )
+      }
+
+      doc.save(`weekly_employee_attendance_${new Date().toISOString().split('T')[0]}.pdf`)
+    }
+  } catch (error) {
+    console.error('Failed to export PDF:', error)
+    alert('Failed to generate PDF export: ' + error.message)
+  } finally {
+    isExporting.value = false
+  }
+}
 
 const initChart = () => {
   if (!chartRef.value) return
@@ -196,17 +519,6 @@ const initChart = () => {
         data: ['Present (On Time)', 'Late', 'Absent'],
         top: 0,
         textStyle: { color: '#475569', fontSize: 11, fontWeight: 600 }
-      },
-      toolbox: {
-        feature: {
-          saveAsImage: {
-            title: 'Download PNG',
-            type: 'png',
-            pixelRatio: 2
-          }
-        },
-        right: 15,
-        top: -5
       },
       grid: {
         top: 40,
@@ -332,17 +644,6 @@ const initChart = () => {
         data: ['Present Days', 'Late Days', 'Absent Days'],
         top: 0,
         textStyle: { color: '#475569', fontSize: 11, fontWeight: 600 }
-      },
-      toolbox: {
-        feature: {
-          saveAsImage: {
-            title: 'Download PNG',
-            type: 'png',
-            pixelRatio: 2
-          }
-        },
-        right: 15,
-        top: -5
       },
       grid: {
         top: 40,
